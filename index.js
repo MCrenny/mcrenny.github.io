@@ -1,11 +1,9 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
-const axios = require('axios');
-const xml2js = require('xml2js');
 const cors = require('cors');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
-const { generateKey, verifyKey, getKeyByTelegramId } = require('./db');
+const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
 
 const app = express();
 app.use(cors());
@@ -75,8 +73,13 @@ app.post('/api/webhooks/freekassa', async (req, res) => {
   }
 
   try {
+    if (await isOrderProcessed(MERCHANT_ORDER_ID)) {
+      return res.send('YES'); // Уже обработано
+    }
+
     const [telegramId, duration] = MERCHANT_ORDER_ID.split('_');
     const newKey = await generateKey(telegramId, parseInt(duration));
+    await markOrderProcessed(MERCHANT_ORDER_ID);
 
     await bot.telegram.sendMessage(telegramId, `✅ *Оплата подтверждена (Free-Kassa)!*\n\nТвой Premium-доступ активирован.\n\nКлюч: \`${newKey}\``, {
       parse_mode: 'Markdown'
@@ -253,8 +256,14 @@ bot.action(/check_(\d+)/, async (ctx) => {
     const invoice = invoices[0];
 
     if (invoice && invoice.status === 'paid') {
+      const orderId = `crypto_${invoiceId}`;
+      if (await isOrderProcessed(orderId)) {
+        return await ctx.answerCbQuery('Оплата уже была зачислена!', { show_alert: true });
+      }
+
       const { telegramId, duration } = JSON.parse(invoice.payload);
       const newKey = await generateKey(telegramId, duration);
+      await markOrderProcessed(orderId);
 
       await ctx.answerCbQuery('Оплата подтверждена!');
       await ctx.editMessageText(`✅ *Оплата прошла успешно!*\n\nТвой Premium-доступ активирован.\n\nКлюч: \`${newKey}\``, {
@@ -291,70 +300,6 @@ bot.hears('🆘 Поддержка', (ctx) => {
 });
 
 // Start servers
-// EPG Logic
-let epgData = {};
-
-const updateEPG = async () => {
-  console.log('Updating EPG...');
-  try {
-    const url = 'https://iptv-org.github.io/epg/guides/ru/program.xml'; 
-    const response = await axios.get(url);
-    const parser = new xml2js.Parser();
-    const result = await parser.parseStringPromise(response.data);
-    
-    const newEpg = {};
-    if (result.tv && result.tv.programme) {
-      result.tv.programme.forEach(prog => {
-        const channelId = prog.$.channel;
-        if (!newEpg[channelId]) newEpg[channelId] = [];
-        
-        newEpg[channelId].push({
-          start: prog.$.start,
-          stop: prog.$.stop,
-          title: prog.title[0]._ || prog.title[0]
-        });
-      });
-    }
-    epgData = newEpg;
-    console.log('EPG Updated successfully');
-  } catch (err) {
-    console.error('EPG Update failed:', err.message);
-  }
-};
-
-// Update EPG every 6 hours
-setInterval(updateEPG, 6 * 60 * 60 * 1000);
-updateEPG();
-
-app.get('/api/epg/:channelId', (req, res) => {
-  const { channelId } = req.params;
-  const programs = epgData[channelId];
-  
-  if (!programs) return res.json({ current: 'Программа недоступна' });
-  
-  const now = new Date();
-  const formatTime = (dateStr) => {
-    // Format from 20240512120000 +0000 to Date
-    const y = dateStr.slice(0, 4);
-    const m = dateStr.slice(4, 6) - 1;
-    const d = dateStr.slice(6, 8);
-    const h = dateStr.slice(8, 10);
-    const min = dateStr.slice(10, 12);
-    return new Date(Date.UTC(y, m, d, h, min));
-  };
-
-  const current = programs.find(p => {
-    const start = formatTime(p.start);
-    const stop = formatTime(p.stop);
-    return now >= start && now <= stop;
-  });
-
-  res.json({
-    current: current ? current.title : 'Нет данных',
-    next: 'Следующая программа скоро...'
-  });
-});
-
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
 });
@@ -389,7 +334,7 @@ if (BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
     
     // Find users whose keys expire tomorrow
-    const expiringKeys = db.prepare("SELECT telegram_id FROM keys WHERE expires_at LIKE ? AND telegram_id IS NOT NULL").all(`${tomorrowStr}%`);
+    const expiringKeys = db.prepare("SELECT DISTINCT telegram_id FROM keys WHERE expires_at LIKE ? AND telegram_id IS NOT NULL").all(`${tomorrowStr}%`);
     
     for (const key of expiringKeys) {
       try {

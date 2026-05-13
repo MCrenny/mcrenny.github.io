@@ -14,7 +14,12 @@ db.exec(`
     expires_at DATETIME,
     is_trial INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
+  );
+
+  CREATE TABLE IF NOT EXISTS processed_orders (
+    order_id TEXT PRIMARY KEY,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration: add columns if they don't exist
@@ -66,11 +71,24 @@ const getAllTelegramIds = () => {
   return Promise.resolve(rows.map(row => row.telegram_id));
 };
 
+const isOrderProcessed = (orderId) => {
+  const stmt = db.prepare('SELECT order_id FROM processed_orders WHERE order_id = ?');
+  return Promise.resolve(!!stmt.get(orderId.toString()));
+};
+
+const markOrderProcessed = (orderId) => {
+  const stmt = db.prepare('INSERT INTO processed_orders (order_id) VALUES (?)');
+  stmt.run(orderId.toString());
+  return Promise.resolve();
+};
+
 module.exports = {
   db,
   generateKey,
   verifyKey,
   getKeyByTelegramId,
   hasUsedTrial,
-  getAllTelegramIds
+  getAllTelegramIds,
+  isOrderProcessed,
+  markOrderProcessed
 };
