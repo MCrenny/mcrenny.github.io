@@ -1,5 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
+const axios = require('axios');
+const xml2js = require('xml2js');
 const cors = require('cors');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
@@ -12,6 +14,14 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN || 'YOUR_CRYPTO_PAY_TOKEN_HERE';
+
+
+const FK_MERCHANT_ID = process.env.FK_MERCHANT_ID;
+const FK_SECRET_1 = process.env.FK_SECRET_1;
+const FK_SECRET_2 = process.env.FK_SECRET_2;
+
+const ADMIN_ID = 329742659; // Твой ID
+const SERVER_URL = `https://iptvpay-svmorozoww.amvera.io`; // Твой адрес Amvera
 const DOWNLOAD_URL = 'https://t.me/StreamLumeApp/1';
 
 const cryptoPay = new CryptoPay(CRYPTO_PAY_TOKEN);
@@ -36,19 +46,161 @@ app.post('/api/verify', async (req, res) => {
   }
 });
 
+// --- Redirects for FreeKassa ---
+app.get('/success', (req, res) => {
+  res.redirect('https://t.me/StreamLumeApp');
+});
+
+app.get('/fail', (req, res) => {
+  res.redirect('https://t.me/StreamLumeApp');
+});
+
+
+// --- Free-Kassa Webhook ---
+app.post('/api/webhooks/freekassa', async (req, res) => {
+  // Фрикасса шлет данные через POST или GET (зависит от настроек), чаще POST
+  const { MERCHANT_ID, AMOUNT, MERCHANT_ORDER_ID, SIGN } = req.body;
+  
+  if (!MERCHANT_ID || !MERCHANT_ORDER_ID || !SIGN) return res.status(400).send('Bad Request');
+
+  const crypto = require('crypto');
+  // Проверка подписи: md5(MERCHANT_ID:AMOUNT:SECRET_2:MERCHANT_ORDER_ID)
+  const checkSign = crypto.createHash('md5')
+    .update(`${MERCHANT_ID}:${AMOUNT}:${FK_SECRET_2}:${MERCHANT_ORDER_ID}`)
+    .digest('hex');
+
+  if (SIGN.toLowerCase() !== checkSign.toLowerCase()) {
+    console.error('Free-Kassa Sign mismatch');
+    return res.status(400).send('Invalid signature');
+  }
+
+  try {
+    const [telegramId, duration] = MERCHANT_ORDER_ID.split('_');
+    const newKey = await generateKey(telegramId, parseInt(duration));
+
+    await bot.telegram.sendMessage(telegramId, `✅ *Оплата подтверждена (Free-Kassa)!*\n\nТвой Premium-доступ активирован.\n\nКлюч: \`${newKey}\``, {
+      parse_mode: 'Markdown'
+    });
+
+    res.send('YES'); // Обязательно 'YES' для Фрикассы
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).send('Error');
+  }
+});
+
 // --- Telegram Bot ---
 const bot = new Telegraf(BOT_TOKEN);
 
 const mainKeyboard = Markup.keyboard([
-  ['💎 Получить доступ', '🔑 Мой ключ'],
-  ['📖 Инструкция', '🆘 Поддержка']
+  ['💎 Получить доступ', '🎁 Пробный период'],
+  ['🔑 Мой ключ', '📖 Инструкция'],
+  ['🆘 Поддержка']
 ]).resize();
 
 bot.start((ctx) => {
   ctx.reply(`Привет, ${ctx.from.first_name}! 👋\n\nДобро пожаловать в StreamLume — премиальное IPTV нового поколения.\n\nИспользуй меню ниже, чтобы получить доступ к сотням каналов в HD качестве.`, mainKeyboard);
+  
+  if (ctx.from.id === ADMIN_ID) {
+    ctx.reply('👑 О, хозяин! Тебе доступна команда /admin');
+  }
+});
+
+// --- Admin Panel ---
+bot.command('admin', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+
+  const adminKeyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('🔑 Создать VIP-ключ (1 год)', 'admin_gen_key')],
+    [Markup.button.callback('📊 Статистика', 'admin_stats')]
+  ]);
+
+  ctx.reply('🛡 Админ-панель StreamLume:', adminKeyboard);
+});
+
+bot.action('admin_gen_key', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  const key = await generateKey(null, 365);
+  ctx.reply(`✅ Создан админ-ключ на 1 год:\n\n\`${key}\``, { parse_mode: 'Markdown' });
+  await ctx.answerCbQuery();
+});
+
+bot.action('admin_stats', async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  const { db } = require('./db');
+  db.get("SELECT COUNT(*) as count FROM keys", (err, row) => {
+    ctx.reply(`📊 Всего выдано ключей: ${row ? row.count : 0}`);
+  });
+  await ctx.answerCbQuery();
+});
+
+bot.hears('🎁 Пробный период', async (ctx) => {
+  const telegramId = ctx.from.id.toString();
+  const alreadyUsed = await hasUsedTrial(telegramId);
+
+  if (alreadyUsed) {
+    ctx.reply('❌ Вы уже использовали пробный период.');
+    return;
+  }
+
+  const trialKey = await generateKey(telegramId, 3, true);
+  ctx.reply(`✅ Ваш пробный доступ на 3 дня активирован!\n\nКлюч: \`${trialKey}\`\n\nВведите этот ключ в приложении для доступа.`, { parse_mode: 'Markdown' });
 });
 
 bot.hears('💎 Получить доступ', async (ctx) => {
+  const paymentMethods = Markup.inlineKeyboard([
+    [Markup.button.callback('💳 Картой РФ (Фрикасса)', 'method_fk')],
+    [Markup.button.callback('🪙 Криптовалютой (USDT / TON)', 'method_crypto')]
+  ]);
+
+  ctx.reply('Выберите удобный способ оплаты:', paymentMethods);
+});
+bot.action('method_fk', async (ctx) => {
+  const tariffs = Markup.inlineKeyboard([
+    [Markup.button.callback('🌙 1 месяц — 300 ₽', 'pay_fk_30_300')],
+    [Markup.button.callback('🌟 3 месяца — 800 ₽', 'pay_fk_90_800')],
+    [Markup.button.callback('👑 1 год — 2500 ₽', 'pay_fk_365_2500')]
+  ]);
+
+  ctx.reply('Выберите тарифный план (Оплата через Free-Kassa):', tariffs);
+  await ctx.answerCbQuery();
+});
+
+// Обработка тарифов через Free-Kassa
+bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
+  const duration = parseInt(ctx.match[1]);
+  const amount = parseInt(ctx.match[2]);
+  const telegramId = ctx.from.id;
+  const orderId = `${telegramId}_${duration}_${Date.now()}`;
+
+  if (!FK_MERCHANT_ID || !FK_SECRET_1) {
+    ctx.reply('❌ Оплата через Free-Kassa временно не настроена (проверь ключи в .env).');
+    return;
+  }
+
+  try {
+    const crypto = require('crypto');
+    const currency = 'RUB';
+    const sign = crypto.createHash('md5')
+      .update(`${FK_MERCHANT_ID}:${amount}:${FK_SECRET_1}:${currency}:${orderId}`)
+      .digest('hex');
+
+    const payUrl = `https://pay.freekassa.ru/?m=${FK_MERCHANT_ID}&oa=${amount}&currency=${currency}&o=${orderId}&s=${sign}&us_login=${telegramId}`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('💳 Перейти к оплате (Free-Kassa)', payUrl)],
+      [Markup.button.callback('🔄 Я оплатил', 'check_payment_manual')]
+    ]);
+
+    ctx.reply(`Счет на оплату через Free-Kassa создан!\n\nСумма: ${amount} ₽\nТариф: ${duration} дней\n\nНажми кнопку ниже для оплаты. Ключ придет автоматически.`, keyboard);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Free-Kassa Error:', error);
+    ctx.reply('Ошибка при создании счета Free-Kassa.');
+  }
+});
+
+bot.action('method_crypto', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
     [Markup.button.callback('🌙 1 месяц — 3 USDT', 'pay_30_3')],
     [Markup.button.callback('🌟 3 месяца — 8 USDT', 'pay_90_8')],
@@ -56,6 +208,12 @@ bot.hears('💎 Получить доступ', async (ctx) => {
   ]);
 
   ctx.reply('Выберите тарифный план для оплаты в USDT:', tariffs);
+  await ctx.answerCbQuery();
+});
+
+bot.action('check_payment_manual', (ctx) => {
+  ctx.reply('⏳ Проверка обычно занимает от 1 до 5 минут. Ключ придет в этот чат автоматически, как только платежная система подтвердит оплату. Пожалуйста, подождите.');
+  ctx.answerCbQuery();
 });
 
 // Создание счета в крипте
@@ -133,11 +291,123 @@ bot.hears('🆘 Поддержка', (ctx) => {
 });
 
 // Start servers
-app.listen(PORT, '0.0.0.0', () => {
+// EPG Logic
+let epgData = {};
+
+const updateEPG = async () => {
+  console.log('Updating EPG...');
+  try {
+    const url = 'https://iptv-org.github.io/epg/guides/ru/program.xml'; 
+    const response = await axios.get(url);
+    const parser = new xml2js.Parser();
+    const result = await parser.parseStringPromise(response.data);
+    
+    const newEpg = {};
+    if (result.tv && result.tv.programme) {
+      result.tv.programme.forEach(prog => {
+        const channelId = prog.$.channel;
+        if (!newEpg[channelId]) newEpg[channelId] = [];
+        
+        newEpg[channelId].push({
+          start: prog.$.start,
+          stop: prog.$.stop,
+          title: prog.title[0]._ || prog.title[0]
+        });
+      });
+    }
+    epgData = newEpg;
+    console.log('EPG Updated successfully');
+  } catch (err) {
+    console.error('EPG Update failed:', err.message);
+  }
+};
+
+// Update EPG every 6 hours
+setInterval(updateEPG, 6 * 60 * 60 * 1000);
+updateEPG();
+
+app.get('/api/epg/:channelId', (req, res) => {
+  const { channelId } = req.params;
+  const programs = epgData[channelId];
+  
+  if (!programs) return res.json({ current: 'Программа недоступна' });
+  
+  const now = new Date();
+  const formatTime = (dateStr) => {
+    // Format from 20240512120000 +0000 to Date
+    const y = dateStr.slice(0, 4);
+    const m = dateStr.slice(4, 6) - 1;
+    const d = dateStr.slice(6, 8);
+    const h = dateStr.slice(8, 10);
+    const min = dateStr.slice(10, 12);
+    return new Date(Date.UTC(y, m, d, h, min));
+  };
+
+  const current = programs.find(p => {
+    const start = formatTime(p.start);
+    const stop = formatTime(p.stop);
+    return now >= start && now <= stop;
+  });
+
+  res.json({
+    current: current ? current.title : 'Нет данных',
+    next: 'Следующая программа скоро...'
+  });
+});
+
+app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
 });
 
 if (BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
+  // Admin Broadcast Command
+  bot.command('broadcast', async (ctx) => {
+    if (ctx.from.id !== ADMIN_ID) return;
+    
+    const message = ctx.message.text.split(' ').slice(1).join(' ');
+    if (!message) return ctx.reply('Использование: /broadcast [ваш текст]');
+    
+    const users = await getAllTelegramIds();
+    let successCount = 0;
+    
+    for (const userId of users) {
+      try {
+        await bot.telegram.sendMessage(userId, `📢 *Уведомление от StreamLume:*\n\n${message}`, { parse_mode: 'Markdown' });
+        successCount++;
+      } catch (e) {
+        console.error(`Failed to send message to ${userId}`);
+      }
+    }
+    
+    ctx.reply(`Рассылка завершена. Успешно отправлено: ${successCount} из ${users.length}`);
+  });
+
+  // Automatic reminders for expiring subscriptions
+  const checkExpirations = async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    
+    // Find users whose keys expire tomorrow
+    const expiringKeys = db.prepare("SELECT telegram_id FROM keys WHERE expires_at LIKE ? AND telegram_id IS NOT NULL").all(`${tomorrowStr}%`);
+    
+    for (const key of expiringKeys) {
+      try {
+        await bot.telegram.sendMessage(key.telegram_id, "⚠️ *Ваша подписка StreamLume заканчивается завтра!*\n\nНе забудьте продлить её в меню оплаты, чтобы не потерять доступ к каналам.", { parse_mode: 'Markdown' });
+      } catch (e) {
+        console.error(`Reminder failed for ${key.telegram_id}`);
+      }
+    }
+  };
+
+  // Check for expirations once a day at 12:00
+  setInterval(() => {
+    const now = new Date();
+    if (now.getHours() === 12 && now.getMinutes() === 0) {
+      checkExpirations();
+    }
+  }, 60000);
+
   bot.launch().then(() => {
     console.log('Telegram bot is running');
   }).catch(err => {

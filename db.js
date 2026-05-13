@@ -12,6 +12,7 @@ db.exec(`
     telegram_id TEXT,
     status TEXT DEFAULT 'active',
     expires_at DATETIME,
+    is_trial INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -19,15 +20,23 @@ db.exec(`
 // Migration: add columns if they don't exist
 try { db.exec("ALTER TABLE keys ADD COLUMN telegram_id TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE keys ADD COLUMN expires_at DATETIME"); } catch (e) {}
+try { db.exec("ALTER TABLE keys ADD COLUMN is_trial INTEGER DEFAULT 0"); } catch (e) {}
 
-const generateKey = (telegramId = null, durationDays = 30) => {
-  const newKey = 'VIP-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString().slice(-4);
+const generateKey = (telegramId = null, durationDays = 30, isTrial = false) => {
+  const prefix = isTrial ? 'TRIAL-' : 'VIP-';
+  const newKey = prefix + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString().slice(-4);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + durationDays);
   
-  const stmt = db.prepare('INSERT INTO keys (key, telegram_id, expires_at) VALUES (?, ?, ?)');
-  stmt.run(newKey, telegramId, expiresAt.toISOString());
+  const stmt = db.prepare('INSERT INTO keys (key, telegram_id, expires_at, is_trial) VALUES (?, ?, ?, ?)');
+  stmt.run(newKey, telegramId, expiresAt.toISOString(), isTrial ? 1 : 0);
   return Promise.resolve(newKey);
+};
+
+const hasUsedTrial = (telegramId) => {
+  const stmt = db.prepare('SELECT id FROM keys WHERE telegram_id = ? AND is_trial = 1');
+  const row = stmt.get(telegramId);
+  return Promise.resolve(!!row);
 };
 
 const getKeyByTelegramId = (telegramId) => {
@@ -51,9 +60,17 @@ const verifyKey = (key) => {
   return Promise.resolve(false);
 };
 
+const getAllTelegramIds = () => {
+  const stmt = db.prepare('SELECT DISTINCT telegram_id FROM keys WHERE telegram_id IS NOT NULL');
+  const rows = stmt.all();
+  return Promise.resolve(rows.map(row => row.telegram_id));
+};
+
 module.exports = {
   db,
   generateKey,
   verifyKey,
-  getKeyByTelegramId
+  getKeyByTelegramId,
+  hasUsedTrial,
+  getAllTelegramIds
 };
