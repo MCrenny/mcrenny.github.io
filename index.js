@@ -286,7 +286,7 @@ bot.hears('🔑 Мой ключ', async (ctx) => {
 bot.hears('📖 Инструкция', async (ctx) => {
   const path = require('path');
   const fs = require('fs');
-  const apkPath = path.join(__dirname, '../landing/StreamLume.apk');
+  const apkPath = path.join(__dirname, 'landing/StreamLume.apk');
 
   await ctx.reply('🚀 *Как начать смотреть StreamLume:*\n\n' +
     '1. Установи APK-файл ниже на свой Android-телефон или ТВ.\n' +
