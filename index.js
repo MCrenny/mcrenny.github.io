@@ -312,6 +312,7 @@ bot.hears('🆘 Поддержка', (ctx) => {
 // Start servers
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
+  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.5 ACTIVE ---`);
 });
 
 if (BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
