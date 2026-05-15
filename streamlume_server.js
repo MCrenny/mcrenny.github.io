@@ -13,13 +13,29 @@ const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN || 'YOUR_CRYPTO_PAY_TOKEN_HERE';
 
-// Serve landing page as static files
 const path = require('path');
+
+// Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
+app.use(express.static(__dirname));
 
 // Root route to serve landing page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'landing/index.html'));
+  const fs = require('fs');
+  const possiblePaths = [
+    path.join(__dirname, 'landing/index.html'),
+    path.join(__dirname, 'index.html'),
+    path.resolve('./index.html'),
+    path.resolve('./landing/index.html')
+  ];
+  
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      return res.sendFile(p);
+    }
+  }
+  
+  res.send('<h1>StreamLume Server is Online</h1><p>Landing page files not found. Please upload index.html to the root directory.</p>');
 });
 
 const FK_MERCHANT_ID = process.env.FK_MERCHANT_ID;
@@ -298,10 +314,10 @@ bot.hears('📖 Инструкция', async (ctx) => {
       await ctx.replyWithDocument({ source: apkPath, filename: 'StreamLume.apk' });
     } catch (e) {
       console.error('Failed to send APK:', e);
-      ctx.reply(`Не удалось отправить файл напрямую. Скачайте его на сайте: ${SERVER_URL}`);
+      ctx.reply(`🚀 Скачайте приложение по ссылке: https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing`);
     }
   } else {
-    ctx.reply(`Файл пока недоступен. Скачайте его на сайте: ${SERVER_URL}`);
+    ctx.reply(`🚀 Скачайте приложение по ссылке: https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing`);
   }
 });
 
