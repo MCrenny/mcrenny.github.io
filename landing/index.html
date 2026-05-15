@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamLume - Премиальный IPTV Плеер</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <nav>
+        <div class="container nav-content">
+            <div class="logo">StreamLume</div>
+            <a href="StreamLume.apk" class="btn btn-primary" style="padding: 0.5rem 1.5rem; font-size: 0.875rem;">Скачать</a>
+        </div>
+    </nav>
+
+    <header>
+        <div class="container">
+            <span class="badge animate">Стабильная версия 1.0.0</span>
+            <h1 class="hero-title animate">Ваше телевидение <br> стало умнее</h1>
+            <p class="hero-subtitle animate">StreamLume — это не просто плеер. Это ваш персональный кинотеатр, который всегда под рукой. Быстрый, удобный и полностью бесплатный.</p>
+            <div class="animate" style="animation-delay: 0.2s; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="StreamLume.apk" class="btn btn-primary">Скачать APK</a>
+                <a href="#features" class="btn" style="background: var(--glass); border: 1px solid var(--glass-border);">Узнать больше</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="features" id="features">
+        <div class="container">
+            <div style="text-align: center;">
+                <h2 style="font-size: 2.5rem; font-weight: 800;">Новый уровень комфорта</h2>
+                <p style="color: var(--text-muted); margin-top: 1rem;">Мы объединили мощные технологии с интуитивно понятным интерфейсом.</p>
+            </div>
+            
+            <div class="grid">
+                <div class="card">
+                    <div class="card-icon">🚀</div>
+                    <h3>Реактивная работа</h3>
+                    <p style="color: var(--text-muted); margin-top: 1rem;">Плеер оптимизирован для работы даже на бюджетных ТВ-приставках. Никаких лагов при переключении.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🎬</div>
+                    <h3>Качество до 4K</h3>
+                    <p style="color: var(--text-muted); margin-top: 1rem;">Поддержка всех современных форматов видео, включая H.265 и 4K HDR для максимального погружения.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📱</div>
+                    <h3>Смартфон и ТВ</h3>
+                    <p style="color: var(--text-muted); margin-top: 1rem;">Интерфейс автоматически адаптируется под ваш девайс. Управляйте пальцем или обычным пультом.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">💸</div>
+                    <h3>Без подписок</h3>
+                    <p style="color: var(--text-muted); margin-top: 1rem;">Используйте свои плейлисты или бесплатные источники без ежемесячных платежей магазинам приложений.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="screenshots">
+        <div class="container">
+            <h2 style="font-size: 2.5rem; font-weight: 800; text-align: center; margin-bottom: 3rem;">Интерфейс StreamLume</h2>
+            <div class="screenshot-slider" id="screenshot-container">
+                <div class="screenshot-item"><img src="assets/screen1.jpg" alt="Каналы" style="width: 100%; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);"></div>
+                <div class="screenshot-item">
+                    <div style="background: var(--glass); border-radius: 24px; overflow: hidden; border: 1px solid var(--glass-border); box-shadow: 0 30px 60px rgba(10, 132, 255, 0.3);">
+                        <img src="assets/screen5.jpg" alt="Плеер" style="width: 100%;">
+                    </div>
+                    <p style="text-align: center; margin-top: 1.5rem; color: #0A84FF; font-weight: bold;">Премиальный плеер</p>
+                </div>
+                <div class="screenshot-item"><img src="assets/screen2.jpg" alt="Списки" style="width: 100%; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);"></div>
+                <div class="screenshot-item"><img src="assets/screen3.jpg" alt="Избранное" style="width: 100%; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);"></div>
+                <div class="screenshot-item"><img src="assets/screen4.jpg" alt="Категории" style="width: 100%; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="download" style="padding: 100px 0; background: linear-gradient(to bottom, transparent, rgba(99, 102, 241, 0.05));">
+        <div class="container" style="text-align: center;">
+            <h2 style="font-size: 3rem; font-weight: 900; margin-bottom: 2rem;">Готовы начать?</h2>
+            <p style="color: var(--text-muted); margin-bottom: 3rem; max-width: 600px; margin-left: auto; margin-right: auto;">Скачайте APK файл прямо сейчас и наслаждайтесь качественным телевидением без подписок и ограничений.</p>
+            <a href="StreamLume.apk" class="btn btn-primary" id="download-link" style="font-size: 1.25rem;">Скачать StreamLume APK</a>
+            <p style="margin-top: 2rem; font-size: 0.875rem; color: var(--text-muted);">Совместимо с Android 8.0+</p>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 StreamLume. Все права защищены.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
