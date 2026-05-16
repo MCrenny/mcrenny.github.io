@@ -314,10 +314,10 @@ bot.hears('📖 Инструкция', async (ctx) => {
       await ctx.replyWithDocument({ source: apkPath, filename: 'StreamLume.apk' });
     } catch (e) {
       console.error('Failed to send APK:', e);
-      ctx.reply(`🚀 Скачайте приложение по ссылке: https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing`);
+      ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/CEQD/4MGv46WnS)`, { parse_mode: 'Markdown' });
     }
   } else {
-    ctx.reply(`🚀 Скачайте приложение по ссылке: https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing`);
+    ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/CEQD/4MGv46WnS)`, { parse_mode: 'Markdown' });
   }
 });
 
