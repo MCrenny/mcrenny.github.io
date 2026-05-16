@@ -348,10 +348,7 @@ bot.hears('🆘 Поддержка', (ctx) => {
 });
 
 // Временный обработчик для получения file_id (скинь боту APK, чтобы получить код)
-bot.on('document', (ctx) => {
-  const fileId = ctx.message.document.file_id;
-  ctx.reply(`✅ Файл получен!\n\nЕго FILE_ID:\n\`${fileId}\`\n\nПришли этот код мне (нейросети), чтобы я вставил его в кнопку скачивания.`, { parse_mode: 'Markdown' });
-});
+// Handler moved inside the block below
 
 // Start servers
 app.listen(PORT, () => {
@@ -360,6 +357,17 @@ app.listen(PORT, () => {
 });
 
 if (BOT_TOKEN) {
+  // Логгер для отладки
+  bot.use(async (ctx, next) => {
+    console.log(`[Bot] Received ${ctx.updateType} from ${ctx.from?.id}`);
+    return next();
+  });
+
+  bot.on('document', (ctx) => {
+    const fileId = ctx.message.document.file_id;
+    console.log(`[Bot] Received document! File ID: ${fileId}`);
+    ctx.reply(`✅ Файл получен!\n\nЕго FILE_ID:\n\`${fileId}\`\n\nПришли этот код мне (нейросети), чтобы я вставил его в кнопку скачивания.`, { parse_mode: 'Markdown' });
+  });
   bot.command('broadcast', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     const message = ctx.message.text.split(' ').slice(1).join(' ');
