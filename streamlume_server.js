@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN;
 
@@ -344,7 +344,7 @@ bot.hears('📖 Инструкция', async (ctx) => {
 });
 
 bot.hears('🆘 Поддержка', (ctx) => {
-  ctx.reply('По всем вопросам пишите нашему администратору: @admin_streamlume');
+  ctx.reply('По всем вопросам пишите нашему администратору: @ZDedMorozZ');
 });
 
 // Start servers
