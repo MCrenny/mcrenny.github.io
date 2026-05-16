@@ -3,8 +3,14 @@ meta:
   toolchain:
     name: npm
     version: 20
+
+build:
+  # Принудительная пересборка нативных модулей (better-sqlite3) под Linux
+  noInstall: false
+
 run:
-  command: npm start
+  command: node streamlume_server.js
+
 persistence:
   - path: database.sqlite
     shared: false

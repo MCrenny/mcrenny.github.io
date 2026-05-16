@@ -1,7 +1,10 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+// На Amvera persistence монтируется относительно рабочей директории (process.cwd()),
+// а не относительно файла модуля (__dirname). Используем CWD для совместимости.
+const dbPath = process.env.DB_PATH || path.resolve(process.cwd(), 'database.sqlite');
+console.log('[DB] Database path:', dbPath);
 const db = new Database(dbPath);
 
 // Initialize DB

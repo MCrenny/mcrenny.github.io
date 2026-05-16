@@ -1,6 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
@@ -10,10 +11,14 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
-const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN || 'YOUR_CRYPTO_PAY_TOKEN_HERE';
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN;
 
-const path = require('path');
+// Диагностика при старте
+console.log('[StreamLume] Starting server...');
+console.log(`[StreamLume] PORT = ${PORT}`);
+console.log(`[StreamLume] BOT_TOKEN = ${BOT_TOKEN ? 'OK (' + BOT_TOKEN.substring(0, 10) + '...)' : 'NOT SET ⚠️'}`);
+console.log(`[StreamLume] CRYPTO_PAY_TOKEN = ${CRYPTO_PAY_TOKEN ? 'OK' : 'NOT SET (crypto payments disabled)'}`);
 
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
@@ -46,7 +51,16 @@ const ADMIN_ID = 329742659; // Твой ID
 const SERVER_URL = `https://iptvpay-svmorozoww.amvera.io`; // Твой адрес Amvera
 const DOWNLOAD_URL = 'https://t.me/StreamLumeApp/1';
 
-const cryptoPay = new CryptoPay(CRYPTO_PAY_TOKEN);
+// Инициализируем CryptoPay только если токен задан — иначе сервер крашится при старте
+let cryptoPay = null;
+if (CRYPTO_PAY_TOKEN) {
+  try {
+    cryptoPay = new CryptoPay(CRYPTO_PAY_TOKEN);
+    console.log('[StreamLume] CryptoPay initialized OK');
+  } catch (e) {
+    console.error('[StreamLume] CryptoPay init error:', e.message);
+  }
+}
 
 // --- Express API ---
 app.post('/api/verify', async (req, res) => {
@@ -244,6 +258,11 @@ bot.action(/pay_(\d+)_(\d+)/, async (ctx) => {
   const amount = parseInt(ctx.match[2]);
   const telegramId = ctx.from.id;
 
+  if (!cryptoPay) {
+    ctx.reply('❌ Оплата криптовалютой временно недоступна. Попробуйте оплатить картой через Free-Kassa.');
+    await ctx.answerCbQuery();
+    return;
+  }
   try {
     await ctx.answerCbQuery();
     const invoice = await cryptoPay.createInvoice('USDT', amount, {
@@ -265,6 +284,9 @@ bot.action(/pay_(\d+)_(\d+)/, async (ctx) => {
 
 bot.action(/check_(\d+)/, async (ctx) => {
   const invoiceId = parseInt(ctx.match[1]);
+  if (!cryptoPay) {
+    return await ctx.answerCbQuery('Криптоплатежи не настроены.', { show_alert: true });
+  }
   try {
     const invoices = await cryptoPay.getInvoices({ invoice_ids: invoiceId });
     const invoice = invoices[0];
@@ -331,7 +353,7 @@ app.listen(PORT, () => {
   console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.5 ACTIVE ---`);
 });
 
-if (BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
+if (BOT_TOKEN) {
   bot.command('broadcast', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     const message = ctx.message.text.split(' ').slice(1).join(' ');
