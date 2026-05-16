@@ -4,9 +4,8 @@ meta:
     name: npm
     version: 20
 
-build:
-  # Принудительная пересборка нативных модулей (better-sqlite3) под Linux
-  noInstall: false
+# Build section removed as it contained invalid fields. Amvera handles npm install automatically.
+
 
 run:
   command: node streamlume_server.js
