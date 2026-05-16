@@ -339,7 +339,17 @@ bot.hears('📖 Инструкция', async (ctx) => {
       ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/CEQD/4MGv46WnS)`, { parse_mode: 'Markdown' });
     }
   } else {
-    ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/CEQD/4MGv46WnS)`, { parse_mode: 'Markdown' });
+    try {
+      await ctx.reply(`🚀 Скачайте приложение прямо здесь или по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/CEQD/4MGv46WnS)`, { parse_mode: 'Markdown' });
+      
+      // Отправка APK файла напрямую через Telegram
+      await ctx.replyWithDocument('BQACAgIAAxkBAA07agijg_t85kEjqw6OYQER0BJlnhcAAi6bAAK0-khIfr9HSAFiTAo7BA', {
+        caption: '📱 Установочный файл StreamLume (v1.0.0)'
+      });
+    } catch (err) {
+      console.error('Error sending document:', err.message);
+      ctx.reply('Не удалось отправить файл напрямую, используйте ссылки выше.');
+    }
   }
 });
 
@@ -357,17 +367,7 @@ app.listen(PORT, () => {
 });
 
 if (BOT_TOKEN) {
-  // Логгер для отладки
-  bot.use(async (ctx, next) => {
-    console.log(`[Bot] Received ${ctx.updateType} from ${ctx.from?.id}`);
-    return next();
-  });
-
-  bot.on('document', (ctx) => {
-    const fileId = ctx.message.document.file_id;
-    console.log(`[Bot] Received document! File ID: ${fileId}`);
-    ctx.reply(`✅ Файл получен!\n\nЕго FILE_ID:\n\`${fileId}\`\n\nПришли этот код мне (нейросети), чтобы я вставил его в кнопку скачивания.`, { parse_mode: 'Markdown' });
-  });
+  // Команды бота
   bot.command('broadcast', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     const message = ctx.message.text.split(' ').slice(1).join(' ');
