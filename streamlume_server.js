@@ -340,7 +340,7 @@ bot.hears('📖 Инструкция', async (ctx) => {
     }
   } else {
     try {
-      await ctx.reply(`🚀 Скачайте приложение прямо здесь или по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/CEQD/4MGv46WnS)`, { parse_mode: 'Markdown' });
+      await ctx.reply(`🚀 Скачайте приложение прямо здесь или по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/3T7q/GcniohxwC)`, { parse_mode: 'Markdown' });
       
       // Отправка APK файла напрямую через Telegram
       await ctx.replyWithDocument('BQACAgIAAxkBAA07agijg_t85kEjqw6OYQER0BJlnhcAAi6bAAK0-khIfr9HSAFiTAo7BA', {
