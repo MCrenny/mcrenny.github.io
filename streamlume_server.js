@@ -347,6 +347,12 @@ bot.hears('🆘 Поддержка', (ctx) => {
   ctx.reply('По всем вопросам пишите нашему администратору: @ZDedMorozZ');
 });
 
+// Временный обработчик для получения file_id (скинь боту APK, чтобы получить код)
+bot.on('document', (ctx) => {
+  const fileId = ctx.message.document.file_id;
+  ctx.reply(`✅ Файл получен!\n\nЕго FILE_ID:\n\`${fileId}\`\n\nПришли этот код мне (нейросети), чтобы я вставил его в кнопку скачивания.`, { parse_mode: 'Markdown' });
+});
+
 // Start servers
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
