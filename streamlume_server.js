@@ -9,6 +9,7 @@ const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTele
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 80;
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -92,37 +93,50 @@ app.get('/fail', (req, res) => {
 });
 
 // --- Free-Kassa Webhook ---
-app.post('/api/webhooks/freekassa', async (req, res) => {
-  const { MERCHANT_ID, AMOUNT, MERCHANT_ORDER_ID, SIGN } = req.body;
-  
-  if (!MERCHANT_ID || !MERCHANT_ORDER_ID || !SIGN) return res.status(400).send('Bad Request');
+app.all('/api/webhooks/freekassa', async (req, res) => {
+  console.log('[FreeKassa Webhook] Received request:', req.method);
+  console.log('[FreeKassa Webhook] Headers:', req.headers);
+  console.log('[FreeKassa Webhook] Body:', req.body);
+  console.log('[FreeKassa Webhook] Query:', req.query);
+
+  const merchantId = req.body?.MERCHANT_ID || req.query?.MERCHANT_ID || req.body?.merchant_id || req.query?.merchant_id;
+  const amount = req.body?.AMOUNT || req.query?.AMOUNT || req.body?.amount || req.query?.amount;
+  const merchantOrderId = req.body?.MERCHANT_ORDER_ID || req.query?.MERCHANT_ORDER_ID || req.body?.merchant_order_id || req.query?.merchant_order_id;
+  const sign = req.body?.SIGN || req.query?.SIGN || req.body?.sign || req.query?.sign;
+
+  if (!merchantId || !merchantOrderId || !sign) {
+    console.error('[FreeKassa Webhook] Missing required parameters');
+    return res.status(400).send('Bad Request');
+  }
 
   const crypto = require('crypto');
   const checkSign = crypto.createHash('md5')
-    .update(`${MERCHANT_ID}:${AMOUNT}:${FK_SECRET_2}:${MERCHANT_ORDER_ID}`)
+    .update(`${merchantId}:${amount}:${FK_SECRET_2}:${merchantOrderId}`)
     .digest('hex');
 
-  if (SIGN.toLowerCase() !== checkSign.toLowerCase()) {
-    console.error('Free-Kassa Sign mismatch');
+  if (sign.toLowerCase() !== checkSign.toLowerCase()) {
+    console.error(`[FreeKassa Webhook] Signature mismatch. Received: ${sign}, Expected: ${checkSign}`);
     return res.status(400).send('Invalid signature');
   }
 
   try {
-    if (await isOrderProcessed(MERCHANT_ORDER_ID)) {
+    if (await isOrderProcessed(merchantOrderId)) {
+      console.log(`[FreeKassa Webhook] Order ${merchantOrderId} already processed.`);
       return res.send('YES');
     }
 
-    const [telegramId, duration] = MERCHANT_ORDER_ID.split('_');
+    const [telegramId, duration] = merchantOrderId.split('_');
     const newKey = await generateKey(telegramId, parseInt(duration));
-    await markOrderProcessed(MERCHANT_ORDER_ID);
+    await markOrderProcessed(merchantOrderId);
 
     await bot.telegram.sendMessage(telegramId, `✅ *Оплата подтверждена (Free-Kassa)!*\n\nТвой Premium-доступ активирован.\n\nКлюч: \`${newKey}\``, {
       parse_mode: 'Markdown'
     });
 
+    console.log(`[FreeKassa Webhook] Order ${merchantOrderId} successfully processed. Key generated: ${newKey}`);
     res.send('YES');
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error('[FreeKassa Webhook] Error:', error);
     res.status(500).send('Error');
   }
 });
