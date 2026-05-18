@@ -5,6 +5,7 @@ const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
+const { rebuildPlaylist, getOrRegisterIdcUuid, updateIdcSession, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
 
 const app = express();
 app.use(cors());
@@ -83,6 +84,88 @@ app.post('/api/verify', async (req, res) => {
   } catch (error) {
     console.error('Error verifying key:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// --- API Playlist cached retrieval ---
+app.get('/api/playlist', async (req, res) => {
+  const { key } = req.query;
+  if (!key) {
+    return res.status(401).send('#EXTM3U\n#EXTINF:-1, Пожалуйста введите Premium-ключ в StreamLume!\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
+  }
+
+  try {
+    const isValid = await verifyKey(key);
+    if (!isValid) {
+      return res.status(401).send('#EXTM3U\n#EXTINF:-1, Неверный или истекший Premium-ключ!\nhttp://iptvpay-svmorozoww.amvera.io/auth_invalid');
+    }
+
+    const fs = require('fs');
+    if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
+      res.setHeader('Content-Type', 'audio/x-mpegurl');
+      res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
+      return res.sendFile(PLAYLIST_CACHE_FILE);
+    } else {
+      // If cache file is missing, trigger rebuild and serve
+      await rebuildPlaylist();
+      if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
+        res.setHeader('Content-Type', 'audio/x-mpegurl');
+        return res.sendFile(PLAYLIST_CACHE_FILE);
+      }
+      return res.status(500).send('#EXTM3U\n#EXTINF:-1, Ошибка генерации плейлиста на сервере\nhttp://iptvpay-svmorozoww.amvera.io/error');
+    }
+  } catch (e) {
+    console.error('Playlist API error:', e);
+    res.status(500).send('Error');
+  }
+});
+
+// --- Dynamic IDC Stream redirection (302 Redirect) ---
+app.get('/api/idc/stream', async (req, res) => {
+  const { channel, key } = req.query;
+  if (!channel || !key) {
+    return res.status(400).send('Bad Request: missing channel or key');
+  }
+
+  try {
+    const isValid = await verifyKey(key);
+    if (!isValid) {
+      return res.status(401).send('Unauthorized: Invalid Premium Key');
+    }
+
+    const uuid = await getOrRegisterIdcUuid();
+    if (!uuid) {
+      return res.status(503).send('Service Unavailable: IDC configuration error');
+    }
+
+    // Call IDC API to fetch channels which contain the fresh temporary signed URLs
+    const https = require('https');
+    const fetchText = (url) => new Promise((resolve, reject) => {
+      https.get(url, { timeout: 4000 }, (res) => {
+        let d = '';
+        res.on('data', chunk => d += chunk);
+        res.on('end', () => resolve(d));
+      }).on('error', reject);
+    });
+
+    const response = await fetchText(`https://iptvn.idc.md/api/v3/main-channels?sid=${uuid}`);
+    const channels = JSON.parse(response);
+    if (Array.isArray(channels)) {
+      const match = channels.find(c => c.id == channel);
+      if (match) {
+        const streamUrl = match.stream_url || match.url;
+        if (streamUrl) {
+          console.log(`[IDC Stream Redirection] Channel ${channel} -> 302 Redirecting client to ${streamUrl}`);
+          return res.redirect(302, streamUrl);
+        }
+      }
+    }
+    
+    console.error(`[IDC Stream Redirection] Channel ${channel} not found or offline`);
+    res.status(404).send('Channel not found or offline');
+  } catch (err) {
+    console.error('IDC Stream redirect error:', err.message);
+    res.status(500).send('Internal Server Error');
   }
 });
 
@@ -388,10 +471,49 @@ bot.hears('🆘 Поддержка', (ctx) => {
 // Start servers
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
-  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.5 ACTIVE ---`);
+  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.6 ACTIVE ---`);
+
+  // Background initialization to prevent blocking the thread
+  setTimeout(async () => {
+    try {
+      console.log('[StreamLume Startup] Checking IDC session pairing status...');
+      await updateIdcSession();
+      console.log('[StreamLume Startup] Rebuilding master playlist in background...');
+      await rebuildPlaylist();
+    } catch (e) {
+      console.error('[StreamLume Startup] Background init error:', e.message);
+    }
+  }, 1000);
 });
 
 if (BOT_TOKEN) {
+  // Команды плейлиста и IDC
+  bot.command('update_playlist', async (ctx) => {
+    if (ctx.from.id !== ADMIN_ID) return;
+    ctx.reply('⏳ Запускаю пересборку и проверку плейлиста... Это может занять до 1-2 минут.');
+    try {
+      const count = await rebuildPlaylist();
+      ctx.reply(`✅ Плейлист успешно обновлен! Всего активных каналов: ${count}`);
+    } catch (e) {
+      console.error(e);
+      ctx.reply(`❌ Ошибка обновления плейлиста: ${e.message}`);
+    }
+  });
+
+  bot.command('pair_idc', async (ctx) => {
+    if (ctx.from.id !== ADMIN_ID) return;
+    try {
+      const uuid = await getOrRegisterIdcUuid();
+      if (uuid) {
+        ctx.reply(`🔗 *Авторизация IDC IPTV*\n\n1. Ваш UUID устройства: \`${uuid}\`\n2. Перейдите по ссылке ниже для привязки устройства к вашему аккаунту в ЛК IDC:\n\nhttps://idc.md/app/iptv/connect?uuid=${uuid}`, { parse_mode: 'Markdown' });
+      } else {
+        ctx.reply('❌ Ошибка: Не удалось сгенерировать UUID от серверов IDC.');
+      }
+    } catch (e) {
+      ctx.reply(`❌ Ошибка: ${e.message}`);
+    }
+  });
+
   // Команды бота
   bot.command('broadcast', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
