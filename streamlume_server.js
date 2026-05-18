@@ -502,10 +502,36 @@ if (BOT_TOKEN) {
 
   bot.command('pair_idc', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
+    const args = ctx.message.text.split(' ');
+    
+    if (args.length > 1) {
+      const customUuid = args[1].trim();
+      if (customUuid.length < 30) {
+        return ctx.reply('❌ Ошибка: Некорректный UUID. Длина должна быть не менее 30 символов.');
+      }
+      
+      try {
+        const { db } = require('./db');
+        db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(customUuid);
+        
+        ctx.reply(`⏳ Проверяем сопряжение для UUID: \`${customUuid}\`...`, { parse_mode: 'Markdown' });
+        
+        const isOk = await updateIdcSession();
+        if (isOk) {
+          ctx.reply(`✅ *IDC авторизован!*\n\nУстройство с UUID \`${customUuid}\` успешно подключено к нашему серверу. Каналы будут автоматически добавлены в категорию *📺 IDC Премиум* при следующем обновлении плейлиста.`, { parse_mode: 'Markdown' });
+        } else {
+          ctx.reply(`⚠️ UUID \`${customUuid}\` сохранён в базе, но IDC API пока возвращает ошибку (код 422/unauthorized).\n\nУбедитесь, что этот UUID взят из рабочей официальной программы IDC TV на вашем телевизоре или из вашего Личного Кабинета IDC.`, { parse_mode: 'Markdown' });
+        }
+      } catch (e) {
+        ctx.reply(`❌ Ошибка сохранения: ${e.message}`);
+      }
+      return;
+    }
+
     try {
       const uuid = await getOrRegisterIdcUuid();
       if (uuid) {
-        ctx.reply(`🔗 *Авторизация IDC IPTV*\n\n1. Ваш UUID устройства: \`${uuid}\`\n2. Перейдите по ссылке ниже для привязки устройства к вашему аккаунту в ЛК IDC:\n\nhttps://idc.md/app/iptv/connect?uuid=${uuid}`, { parse_mode: 'Markdown' });
+        ctx.reply(`🔗 *Авторизация IDC IPTV*\n\n1. Ваш UUID устройства: \`${uuid}\`\n2. Перейдите по ссылке ниже для привязки устройства к вашему аккаунту в ЛК IDC:\n\nhttps://idc.md/app/iptv/connect?uuid=${uuid}\n\n💡 *СОВЕТ-ОБХОД:* Если при переходе по ссылке вы видите ошибку *«Ваше приложение устарело»*, это ограничение биллинга IDC. Вы можете просто скопировать UUID уже работающего у вас устройства (ТВ-приставки или телефона) из Личного Кабинета IDC и привязать его напрямую командой:\n\n\`\/pair_idc [ВАШ_РАБОЧИЙ_UUID]\``, { parse_mode: 'Markdown' });
       } else {
         ctx.reply('❌ Ошибка: Не удалось сгенерировать UUID от серверов IDC.');
       }
