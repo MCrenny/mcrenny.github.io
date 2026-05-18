@@ -20,6 +20,9 @@ console.log('[StreamLume] Starting server...');
 console.log(`[StreamLume] PORT = ${PORT}`);
 console.log(`[StreamLume] BOT_TOKEN = ${BOT_TOKEN ? 'OK (' + BOT_TOKEN.substring(0, 10) + '...)' : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] CRYPTO_PAY_TOKEN = ${CRYPTO_PAY_TOKEN ? 'OK' : 'NOT SET (crypto payments disabled)'}`);
+console.log(`[StreamLume] FK_MERCHANT_ID = ${process.env.FK_MERCHANT_ID ? process.env.FK_MERCHANT_ID : 'NOT SET ⚠️'}`);
+console.log(`[StreamLume] FK_SECRET_1 = ${process.env.FK_SECRET_1 ? 'LOADED (len: ' + process.env.FK_SECRET_1.length + ', preview: ' + process.env.FK_SECRET_1.substring(0, 2) + '...' + process.env.FK_SECRET_1.slice(-2) + ')' : 'NOT SET ⚠️'}`);
+console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len: ' + process.env.FK_SECRET_2.length + ', preview: ' + process.env.FK_SECRET_2.substring(0, 2) + '...' + process.env.FK_SECRET_2.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
@@ -232,8 +235,16 @@ bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
   try {
     const crypto = require('crypto');
     const currency = 'RUB';
+    const rawSignString = `${FK_MERCHANT_ID}:${amount}:${FK_SECRET_1}:${currency}:${orderId}`;
+    
+    // Mask secret for secure logging
+    const maskedSecret = FK_SECRET_1.substring(0, 2) + '...' + FK_SECRET_1.slice(-2);
+    const maskedSignString = `${FK_MERCHANT_ID}:${amount}:${maskedSecret}:${currency}:${orderId}`;
+    
+    console.log(`[FreeKassa Link] Creating payment url for ${orderId}. Hashing string pattern: "${maskedSignString}"`);
+    
     const sign = crypto.createHash('md5')
-      .update(`${FK_MERCHANT_ID}:${amount}:${FK_SECRET_1}:${currency}:${orderId}`)
+      .update(rawSignString)
       .digest('hex');
 
     const payUrl = `https://pay.fk.money/?m=${FK_MERCHANT_ID}&oa=${amount}&currency=${currency}&o=${orderId}&s=${sign}&us_login=${telegramId}`;

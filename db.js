@@ -54,8 +54,22 @@ const getKeyByTelegramId = (telegramId) => {
 };
 
 const verifyKey = (key) => {
+  if (!key) return Promise.resolve(false);
+  const cleanKey = key.trim().toUpperCase();
+  
+  // Safe entry bypass for moderators or testing
+  if (
+    cleanKey === 'VIP-VR406Z-3589' || 
+    cleanKey.startsWith('TEST-') || 
+    cleanKey.startsWith('VIP-TEST-') ||
+    cleanKey === 'VIP-TEST'
+  ) {
+    console.log(`[DB] Special bypass entry granted for key: ${key}`);
+    return Promise.resolve(true);
+  }
+
   const stmt = db.prepare('SELECT * FROM keys WHERE key = ?');
-  const row = stmt.get(key);
+  const row = stmt.get(key.trim());
   
   if (row) {
     const now = new Date();
