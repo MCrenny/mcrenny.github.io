@@ -5,7 +5,7 @@ const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
-const { rebuildPlaylist, getOrRegisterIdcUuid, updateIdcSession, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
+const { rebuildPlaylist, getOrRegisterIdcUuid, updateIdcSession, loginIdc, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
 
 const app = express();
 app.use(cors());
@@ -537,6 +537,58 @@ if (BOT_TOKEN) {
       }
     } catch (e) {
       ctx.reply(`❌ Ошибка: ${e.message}`);
+    }
+  });
+
+  bot.command('login_idc', async (ctx) => {
+    if (ctx.from.id !== ADMIN_ID) return;
+
+    // Immediately try to delete the message containing the password for security
+    try {
+      await ctx.deleteMessage();
+    } catch (e) {
+      console.warn('Failed to delete sensitive login message:', e.message);
+    }
+
+    const args = ctx.message.text.split(' ');
+    if (args.length < 3) {
+      return ctx.reply('❌ Ошибка!\n\nИспользование: `/login_idc [номер_договора] [PIN_пароль]`\n\n💡 *Справка:* Параметры должны быть целыми числами. Например: `/login_idc 123456 1111`\n\n*(Сообщение с паролем будет автоматически удалено ботом для безопасности)*', { parse_mode: 'Markdown' });
+    }
+
+    const loginStr = args[1].trim();
+    const passwordStr = args[2].trim();
+
+    const statusMsg = await ctx.reply('⏳ Выполняю безопасный вход в приложение IDC и сопряжение устройства...');
+
+    try {
+      const result = await loginIdc(loginStr, passwordStr);
+      if (result && result.success) {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id,
+          statusMsg.message_id,
+          null,
+          `✅ *Вход в IDC выполнен успешно!*\n\nУстройство успешно авторизовано в биллинге IDC.\n🌐 Зарегистрирован UUID: \`${result.uuid}\`\n\nЗапускаю пересборку плейлиста для активации каналов...`,
+          { parse_mode: 'Markdown' }
+        );
+
+        // Rebuild playlist to fetch the IDC channels immediately
+        const count = await rebuildPlaylist();
+        
+        await ctx.telegram.sendMessage(
+          ctx.chat.id,
+          `🎉 *Все системы IDC IPTV активны!*\n\nОбновлено каналов в плейлисте: **${count}**.\nКатегория *📺 IDC Премиум* теперь доступна для просмотра!`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        null,
+        `❌ *Ошибка авторизации IDC*:\n\n${err.message}\n\nУбедитесь, что номер договора и PIN-код введены верно и являются целыми числами.`,
+        { parse_mode: 'Markdown' }
+      );
     }
   });
 

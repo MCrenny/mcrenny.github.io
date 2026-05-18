@@ -20,16 +20,44 @@ let idcUuid = null;
 const fetchText = (url) => {
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http;
-    const req = client.get(url, { timeout: 8000 }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => resolve(data));
-    });
-    req.on('error', (err) => reject(err));
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Timeout'));
-    });
+    try {
+      const parsed = new URL(url);
+      const options = {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: 'GET',
+        headers: {
+          'User-Agent': 'okhttp/4.9.2',
+          'Accept': '*/*'
+        },
+        timeout: 8000
+      };
+      const req = client.request(options, (res) => {
+        if (res.statusCode >= 400) {
+          let errData = '';
+          res.on('data', (chunk) => errData += chunk);
+          res.on('end', () => {
+            const err = new Error(`HTTP Error ${res.statusCode}`);
+            err.statusCode = res.statusCode;
+            err.responseBody = errData;
+            reject(err);
+          });
+          return;
+        }
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', (err) => reject(err));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Timeout'));
+      });
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
   });
 };
 
@@ -175,6 +203,69 @@ const updateIdcSession = async () => {
   return false;
 };
 
+// Perform in-app login via /api/v3/login to automatically pair and register device in IDC billing
+const loginIdc = async (login, password) => {
+  const numLogin = parseInt(login, 10);
+  const numPassword = parseInt(password, 10);
+  if (isNaN(numLogin) || isNaN(numPassword)) {
+    throw new Error('Логин (номер договора) и пароль (PIN) должны быть целыми числами!');
+  }
+
+  // 1. Get or generate persistent ANDROID_ID (serial)
+  let deviceId = '';
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'idc_device_id'").get();
+    if (row) {
+      deviceId = row.value;
+    } else {
+      deviceId = require('crypto').randomBytes(8).toString('hex');
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_device_id', ?)").run(deviceId);
+    }
+  } catch (e) {
+    deviceId = require('crypto').randomBytes(8).toString('hex');
+  }
+
+  // 2. Generate a fresh UUID (softid)
+  const uuid = require('crypto').randomUUID();
+
+  // 3. Make GET request to /api/v3/login
+  const url = `https://iptvn.idc.md/api/v3/login?settings=all&login=${numLogin}&password=${numPassword}&serial=${deviceId}&softid=${uuid}`;
+  
+  try {
+    console.log(`[IDC Integration] Logging in to IDC IPTV: account ${numLogin}, device ${deviceId}, softid ${uuid}`);
+    const response = await fetchText(url);
+    const resObj = JSON.parse(response);
+    
+    console.log(`[IDC Integration] Login successful!`);
+    
+    // Save the successfully paired UUID to SQLite
+    idcUuid = uuid;
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(idcUuid);
+    
+    // Set the active session ID (sid)
+    idcSid = uuid;
+    
+    return {
+      success: true,
+      uuid: uuid,
+      data: resObj
+    };
+  } catch (err) {
+    console.error(`[IDC Integration] Login failed:`, err.message);
+    if (err.responseBody) {
+      try {
+        const bodyObj = JSON.parse(err.responseBody);
+        if (bodyObj && bodyObj.message) {
+          throw new Error(bodyObj.message);
+        }
+      } catch (pe) {
+        // Ignored
+      }
+    }
+    throw err;
+  }
+};
+
 // Fetch official channels from IDC
 const fetchIdcChannels = async () => {
   // Refresh/check session
@@ -264,5 +355,6 @@ module.exports = {
   getOrRegisterIdcUuid,
   fetchIdcChannels,
   updateIdcSession,
+  loginIdc,
   PLAYLIST_CACHE_FILE
 };
