@@ -192,7 +192,7 @@ const updateIdcSession = async () => {
     
     // If the UUID is paired, this returns successfully.
     // If not paired, it returns 422/unauthorized.
-    if (resObj && Array.isArray(resObj)) {
+    if (resObj && (Array.isArray(resObj) || Array.isArray(resObj.channels))) {
       idcSid = uuid; // In IDC's protocol, once paired, the UUID itself functions as the sid!
       console.log('[IDC Integration] Session verified successfully.');
       return true;
@@ -277,7 +277,10 @@ const fetchIdcChannels = async () => {
 
   try {
     const response = await fetchText(`https://iptvn.idc.md/api/v3/main-channels?sid=${idcSid}`);
-    const channels = JSON.parse(response);
+    let channels = JSON.parse(response);
+    if (channels && !Array.isArray(channels) && Array.isArray(channels.channels)) {
+      channels = channels.channels;
+    }
     if (Array.isArray(channels)) {
       console.log(`[IDC Integration] Loaded ${channels.length} channels from IDC.`);
       return channels.map(c => ({

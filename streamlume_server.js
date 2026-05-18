@@ -149,7 +149,10 @@ app.get('/api/idc/stream', async (req, res) => {
     });
 
     const response = await fetchText(`https://iptvn.idc.md/api/v3/main-channels?sid=${uuid}`);
-    const channels = JSON.parse(response);
+    let channels = JSON.parse(response);
+    if (channels && !Array.isArray(channels) && Array.isArray(channels.channels)) {
+      channels = channels.channels;
+    }
     if (Array.isArray(channels)) {
       const match = channels.find(c => c.id == channel);
       if (match) {
