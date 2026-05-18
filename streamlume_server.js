@@ -548,11 +548,20 @@ if (BOT_TOKEN) {
     }
   });
 
-  bot.launch().then(() => {
-    console.log('Telegram bot is running');
-  }).catch(err => {
-    console.error('Error starting telegram bot:', err.message);
-  });
+  const launchBot = (retries = 10, delay = 8000) => {
+    bot.launch().then(() => {
+      console.log('Telegram bot is running');
+    }).catch(err => {
+      console.error('Error starting telegram bot:', err.message);
+      if (retries > 0) {
+        console.log(`[Telegram Bot] Retrying launch in ${delay/1000}s... (${retries} retries left)`);
+        setTimeout(() => launchBot(retries - 1, delay), delay);
+      } else {
+        console.error('[Telegram Bot] Maximum launch retries reached. Bot is offline.');
+      }
+    });
+  };
+  launchBot();
 }
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
