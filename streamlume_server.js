@@ -247,7 +247,7 @@ bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
       .update(rawSignString)
       .digest('hex');
 
-    const payUrl = `https://pay.fk.money/?m=${FK_MERCHANT_ID}&oa=${amount}&currency=${currency}&o=${orderId}&s=${sign}&us_login=${telegramId}`;
+    const payUrl = `https://pay.freekassa.net/?m=${FK_MERCHANT_ID}&oa=${amount}&currency=${currency}&o=${orderId}&s=${sign}&us_login=${telegramId}`;
 
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.url('💳 Перейти к оплате (Free-Kassa)', payUrl)],
