@@ -101,16 +101,24 @@ app.get('/api/playlist', async (req, res) => {
     }
 
     const fs = require('fs');
+    const servePlaylistWithKey = (filePath, key, response) => {
+      let content = fs.readFileSync(filePath, 'utf8');
+      content = content.replace(
+        /(\/api\/idc\/stream\?channel=\d+)/g,
+        `$1&key=${encodeURIComponent(key)}`
+      );
+      response.setHeader('Content-Type', 'audio/x-mpegurl');
+      response.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
+      return response.send(content);
+    };
+
     if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
-      res.setHeader('Content-Type', 'audio/x-mpegurl');
-      res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
-      return res.sendFile(PLAYLIST_CACHE_FILE);
+      return servePlaylistWithKey(PLAYLIST_CACHE_FILE, key, res);
     } else {
       // If cache file is missing, trigger rebuild and serve
       await rebuildPlaylist();
       if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
-        res.setHeader('Content-Type', 'audio/x-mpegurl');
-        return res.sendFile(PLAYLIST_CACHE_FILE);
+        return servePlaylistWithKey(PLAYLIST_CACHE_FILE, key, res);
       }
       return res.status(500).send('#EXTM3U\n#EXTINF:-1, Ошибка генерации плейлиста на сервере\nhttp://iptvpay-svmorozoww.amvera.io/error');
     }
