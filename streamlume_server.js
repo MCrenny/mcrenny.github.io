@@ -5,7 +5,7 @@ const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
-const { rebuildPlaylist, getOrRegisterIdcUuid, updateIdcSession, loginIdc, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
+const { rebuildPlaylist, getOrRegisterIdcUuid, updateIdcSession, loginIdc, getOrRefreshIdcSession, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
 
 const app = express();
 app.use(cors());
@@ -133,39 +133,44 @@ app.get('/api/idc/stream', async (req, res) => {
       return res.status(401).send('Unauthorized: Invalid Premium Key');
     }
 
-    const uuid = await getOrRegisterIdcUuid();
-    if (!uuid) {
-      return res.status(503).send('Service Unavailable: IDC configuration error');
+    const session = await getOrRefreshIdcSession();
+    if (!session) {
+      return res.status(503).send('Service Unavailable: No active IDC account. Use /login_idc first.');
     }
 
-    // Call IDC API to fetch channels which contain the fresh temporary signed URLs
+    const { sid, sidName } = session;
+
+    // Call legacy IDC API to fetch stream URL for channel
     const https = require('https');
-    const fetchText = (url) => new Promise((resolve, reject) => {
-      https.get(url, { timeout: 4000 }, (res) => {
+    const fetchJson = (url) => new Promise((resolve, reject) => {
+      https.get(url, { 
+        headers: { 'User-Agent': 'okhttp/4.9.2' }, 
+        timeout: 6000 
+      }, (res) => {
         let d = '';
         res.on('data', chunk => d += chunk);
-        res.on('end', () => resolve(d));
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(d));
+          } catch(e) { reject(e); }
+        });
       }).on('error', reject);
     });
 
-    const response = await fetchText(`https://iptvn.idc.md/api/v3/main-channels?sid=${uuid}`);
-    let channels = JSON.parse(response);
-    if (channels && !Array.isArray(channels) && Array.isArray(channels.channels)) {
-      channels = channels.channels;
-    }
-    if (Array.isArray(channels)) {
-      const match = channels.find(c => c.id == channel);
-      if (match) {
-        const streamUrl = match.stream_url || match.url;
-        if (streamUrl) {
-          console.log(`[IDC Stream Redirection] Channel ${channel} -> 302 Redirecting client to ${streamUrl}`);
-          return res.redirect(302, streamUrl);
-        }
-      }
+    const url = `https://iptvn.idc.md/api/json/get_url?${sidName}=${sid}&cid=${channel}`;
+    const resObj = await fetchJson(url);
+
+    if (resObj && resObj.url) {
+      // Parse custom stream format e.g. "http/ts://[IP]:[PORT]/?ticket=[TICKET] :http-caching=3000 :no-http-reconnect"
+      const rawUrl = resObj.url;
+      const cleanUrl = rawUrl.split(' ')[0].replace('http/ts://', 'http://');
+      
+      console.log(`[IDC Stream Redirection] Resolved channel ${channel} -> 302 redirecting to clean stream URL: ${cleanUrl}`);
+      return res.redirect(302, cleanUrl);
     }
     
-    console.error(`[IDC Stream Redirection] Channel ${channel} not found or offline`);
-    res.status(404).send('Channel not found or offline');
+    console.error(`[IDC Stream Redirection] Channel ${channel} not found or failed to load. Response:`, resObj);
+    res.status(404).send('Channel not found or stream offline');
   } catch (err) {
     console.error('IDC Stream redirect error:', err.message);
     res.status(500).send('Internal Server Error');

@@ -179,31 +179,94 @@ const getOrRegisterIdcUuid = async () => {
   return idcUuid;
 };
 
-// Obtain fresh Session ID (sid) from IDC
-const updateIdcSession = async () => {
-  const uuid = await getOrRegisterIdcUuid();
-  if (!uuid) return false;
-
-  try {
-    // probe test endpoint which returns current status/session if paired
-    console.log(`[IDC Integration] Refreshing session for UUID: ${uuid}`);
-    const response = await fetchText(`https://iptvn.idc.md/api/v3/main-channels?sid=${uuid}`);
-    const resObj = JSON.parse(response);
-    
-    // If the UUID is paired, this returns successfully.
-    // If not paired, it returns 422/unauthorized.
-    if (resObj && (Array.isArray(resObj) || Array.isArray(resObj.channels))) {
-      idcSid = uuid; // In IDC's protocol, once paired, the UUID itself functions as the sid!
-      console.log('[IDC Integration] Session verified successfully.');
-      return true;
+const postMultipart = (url, fields) => {
+  return new Promise((resolve, reject) => {
+    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
+    const bodyParts = [];
+    for (const [k, v] of Object.entries(fields)) {
+      bodyParts.push(`--${boundary}`);
+      bodyParts.push(`Content-Disposition: form-data; name="${k}"`);
+      bodyParts.push('');
+      bodyParts.push(v.toString());
     }
-  } catch (err) {
-    console.warn('[IDC Integration] Session pairing check returned error (device likely not paired in billing portal yet)');
-  }
-  return false;
+    bodyParts.push(`--${boundary}--`);
+    bodyParts.push('');
+    const bodyData = Buffer.from(bodyParts.join('\r\n'), 'utf-8');
+
+    const parsed = new URL(url);
+    const client = url.startsWith('https') ? https : http;
+    
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: 'POST',
+      headers: {
+        'User-Agent': 'okhttp/4.9.2',
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyData.length
+      },
+      timeout: 10000
+    };
+
+    const req = client.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 400) {
+          const err = new Error(`HTTP Error ${res.statusCode}`);
+          err.responseBody = data;
+          reject(err);
+        } else {
+          resolve(data);
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Timeout'));
+    });
+
+    req.write(bodyData);
+    req.end();
+  });
 };
 
-// Perform in-app login via /api/v3/login to automatically pair and register device in IDC billing
+// Obtain or refresh fresh Session ID (sid) from IDC
+const getOrRefreshIdcSession = async () => {
+  try {
+    const loginRow = db.prepare("SELECT value FROM settings WHERE key = 'idc_login'").get();
+    const passRow = db.prepare("SELECT value FROM settings WHERE key = 'idc_password'").get();
+    if (!loginRow || !passRow) {
+      console.log('[IDC Integration] No saved credentials found in database.');
+      return null;
+    }
+
+    const login = loginRow.value;
+    const pass = passRow.value;
+
+    const result = await loginIdc(login, pass);
+    if (result && result.success) {
+      return {
+        sid: result.uuid,
+        sidName: 'SSID'
+      };
+    }
+  } catch (err) {
+    console.error('[IDC Integration] Auto-refresh login failed:', err.message);
+  }
+  return null;
+};
+
+// Obtain fresh Session ID (sid) from IDC (for compatibility)
+const updateIdcSession = async () => {
+  const session = await getOrRefreshIdcSession();
+  return !!session;
+};
+
+// Perform in-app login via legacy JSON API
 const loginIdc = async (login, password) => {
   const numLogin = parseInt(login, 10);
   const numPassword = parseInt(password, 10);
@@ -211,7 +274,6 @@ const loginIdc = async (login, password) => {
     throw new Error('Логин (номер договора) и пароль (PIN) должны быть целыми числами!');
   }
 
-  // 1. Get or generate persistent ANDROID_ID (serial)
   let deviceId = '';
   try {
     const row = db.prepare("SELECT value FROM settings WHERE key = 'idc_device_id'").get();
@@ -225,73 +287,119 @@ const loginIdc = async (login, password) => {
     deviceId = require('crypto').randomBytes(8).toString('hex');
   }
 
-  // 2. Generate a fresh UUID (softid)
-  const uuid = require('crypto').randomUUID();
-
-  // 3. Make GET request to /api/v3/login
-  const url = `https://iptvn.idc.md/api/v3/login?settings=all&login=${numLogin}&password=${numPassword}&serial=${deviceId}&softid=${uuid}`;
-  
+  let softid = '';
   try {
-    console.log(`[IDC Integration] Logging in to IDC IPTV: account ${numLogin}, device ${deviceId}, softid ${uuid}`);
-    const response = await fetchText(url);
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'idc_softid'").get();
+    if (row) {
+      softid = row.value;
+    } else {
+      softid = require('crypto').randomUUID();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_softid', ?)").run(softid);
+    }
+  } catch (e) {
+    softid = require('crypto').randomUUID();
+  }
+
+  const url = `https://iptvn.idc.md/api/json/login?settings=all`;
+  const fields = {
+    login: numLogin,
+    pass: numPassword,
+    softid: softid,
+    cli_serial: deviceId
+  };
+
+  try {
+    console.log(`[IDC Integration] Logging in via legacy API: account ${numLogin}, device ${deviceId}, softid ${softid}`);
+    const response = await postMultipart(url, fields);
     const resObj = JSON.parse(response);
-    
-    console.log(`[IDC Integration] Login successful!`);
-    
-    // Save the successfully paired UUID to SQLite
-    idcUuid = uuid;
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(idcUuid);
-    
-    // Set the active session ID (sid)
-    idcSid = uuid;
-    
+
+    if (resObj.error) {
+      throw new Error(resObj.error.message || 'Ошибка авторизации');
+    }
+
+    const sid = resObj.sid;
+    const sidName = resObj.sid_name || 'SSID';
+
+    console.log(`[IDC Integration] Login successful! SSID = ${sid}`);
+
+    // Save successful credentials and session to SQLite
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_login', ?)").run(numLogin.toString());
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_password', ?)").run(numPassword.toString());
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(sid); // keep compatibility
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_sid', ?)").run(sid);
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_sid_name', ?)").run(sidName);
+
+    idcSid = sid;
+    idcUuid = sid;
+
     return {
       success: true,
-      uuid: uuid,
+      uuid: sid,
       data: resObj
     };
   } catch (err) {
     console.error(`[IDC Integration] Login failed:`, err.message);
-    if (err.responseBody) {
-      try {
-        const bodyObj = JSON.parse(err.responseBody);
-        if (bodyObj && bodyObj.message) {
-          throw new Error(bodyObj.message);
-        }
-      } catch (pe) {
-        // Ignored
-      }
-    }
     throw err;
   }
 };
 
 // Fetch official channels from IDC
 const fetchIdcChannels = async () => {
-  // Refresh/check session
-  const isOk = await updateIdcSession();
-  if (!isOk || !idcSid) {
-    console.log('[IDC Integration] Skipping IDC aggregation: Device is not paired yet.');
+  const session = await getOrRefreshIdcSession();
+  if (!session) {
+    console.log('[IDC Integration] Skipping IDC aggregation: No active paired account.');
     return [];
   }
 
   try {
-    const response = await fetchText(`https://iptvn.idc.md/api/v3/main-channels?sid=${idcSid}`);
-    let channels = JSON.parse(response);
-    if (channels && !Array.isArray(channels) && Array.isArray(channels.channels)) {
-      channels = channels.channels;
+    const { sid, sidName } = session;
+    console.log(`[IDC Integration] Fetching channel list using ${sidName}=${sid}`);
+    
+    const passRow = db.prepare("SELECT value FROM settings WHERE key = 'idc_password'").get();
+    const pin = passRow ? passRow.value : '';
+
+    const url = `https://iptvn.idc.md/api/json/channel_list?${sidName}=${sid}&icon=png&show=all&protect_code=${pin}`;
+    const response = await fetchText(url);
+    const resObj = JSON.parse(response);
+
+    if (resObj.error) {
+      console.error('[IDC Integration] Channel list API error:', resObj.error.message);
+      return [];
     }
-    if (Array.isArray(channels)) {
-      console.log(`[IDC Integration] Loaded ${channels.length} channels from IDC.`);
-      return channels.map(c => ({
-        id: c.id,
-        name: c.name || c.title,
-        group: '📺 IDC Премиум', // Separate Folder as requested by user
-        logo: c.logo || c.image || '',
-        url: `https://iptvpay-svmorozoww.amvera.io/api/idc/stream?channel=${c.id}`,
-        originalUrl: c.stream_url || c.url || ''
-      }));
+
+    const groups = resObj.groups || [];
+    console.log(`[IDC Integration] Loaded ${groups.length} channel categories from IDC.`);
+    
+    const aggregated = [];
+    const seenIds = new Set();
+
+    for (const group of groups) {
+      const categoryName = group.name;
+      const channels = group.channels || [];
+      
+      for (const c of channels) {
+        if (c.is_video === 0) continue; // Skip radio channels
+        
+        const cId = c.id;
+        if (!seenIds.has(cId)) {
+          seenIds.add(cId);
+          
+          const visibleGroup = `📺 IDC: ${categoryName}`;
+          
+          aggregated.push({
+            id: cId,
+            name: c.name,
+            group: visibleGroup,
+            logo: c.icon ? `https://iptv.idc.md${c.icon}` : '',
+            url: `https://iptvpay-svmorozoww.amvera.io/api/idc/stream?channel=${cId}`,
+            originalUrl: ''
+          });
+        }
+      }
     }
+
+    console.log(`[IDC Integration] Extracted ${aggregated.length} unique video channels from categories.`);
+    return aggregated;
   } catch (err) {
     console.error('[IDC Integration] Failed to fetch IDC channels:', err.message);
   }
@@ -359,5 +467,6 @@ module.exports = {
   fetchIdcChannels,
   updateIdcSession,
   loginIdc,
+  getOrRefreshIdcSession,
   PLAYLIST_CACHE_FILE
 };
