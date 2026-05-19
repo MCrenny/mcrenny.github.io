@@ -129,6 +129,17 @@ app.get('/api/playlist', async (req, res) => {
   }
 });
 
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const { db } = require('./db');
+    const settings = db.prepare('SELECT * FROM settings').all();
+    const keys = db.prepare('SELECT * FROM keys').all();
+    res.json({ settings, keys });
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
 // --- Dynamic IDC Stream redirection (302 Redirect) ---
 app.get(['/api/idc/stream', '/api/idc/stream/video.ts'], async (req, res) => {
   const { channel, key } = req.query;
