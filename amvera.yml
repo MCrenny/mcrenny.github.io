@@ -6,6 +6,4 @@ meta:
 
 run:
   command: node streamlume_server.js
-
-persistence:
-  - path: database.sqlite
+  persistenceMount: /data

@@ -1,9 +1,27 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// На Amvera persistence монтируется относительно рабочей директории (process.cwd()),
-// а не относительно файла модуля (__dirname). Используем CWD для совместимости.
-const dbPath = process.env.DB_PATH || path.resolve(process.cwd(), 'database.sqlite');
+const fs = require('fs');
+
+let dbPath = process.env.DB_PATH;
+if (!dbPath) {
+  if (fs.existsSync('/data')) {
+    dbPath = '/data/database.sqlite';
+    // Migration: Copy database from current directory if it exists and /data doesn't have it
+    const localDbPath = path.resolve(process.cwd(), 'database.sqlite');
+    if (!fs.existsSync(dbPath) && fs.existsSync(localDbPath)) {
+      try {
+        fs.copyFileSync(localDbPath, dbPath);
+        console.log('[DB Migration] Copied database from local workspace to persistent volume.');
+      } catch (err) {
+        console.error('[DB Migration] Failed to copy database:', err.message);
+      }
+    }
+  } else {
+    dbPath = path.resolve(process.cwd(), 'database.sqlite');
+  }
+}
+
 console.log('[DB] Database path:', dbPath);
 const db = new Database(dbPath);
 

@@ -10,7 +10,21 @@ const OPEN_SOURCES = [
 ];
 
 // File cache path
-const PLAYLIST_CACHE_FILE = path.join(__dirname, 'playlist.m3u');
+let PLAYLIST_CACHE_FILE = process.env.PLAYLIST_CACHE_PATH;
+if (!PLAYLIST_CACHE_FILE) {
+  if (fs.existsSync('/data')) {
+    PLAYLIST_CACHE_FILE = '/data/playlist.m3u';
+    // Copy local cached file to /data if needed
+    const localCache = path.join(__dirname, 'playlist.m3u');
+    if (!fs.existsSync(PLAYLIST_CACHE_FILE) && fs.existsSync(localCache)) {
+      try {
+        fs.copyFileSync(localCache, PLAYLIST_CACHE_FILE);
+      } catch (e) {}
+    }
+  } else {
+    PLAYLIST_CACHE_FILE = path.join(__dirname, 'playlist.m3u');
+  }
+}
 
 // Keep track of the active session ID (sid) and UUID for IDC
 let idcSid = null;
