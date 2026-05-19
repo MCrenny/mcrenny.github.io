@@ -104,13 +104,14 @@ app.get('/api/playlist', async (req, res) => {
     const servePlaylistWithKey = (filePath, key, response) => {
       let content = fs.readFileSync(filePath, 'utf8');
       content = content.replace(
-        /(\/api\/idc\/stream\?channel=\d+)/g,
+        /(\/api\/idc\/stream(?:\/video\.ts)?\?channel=\d+)/g,
         `$1&key=${encodeURIComponent(key)}`
       );
       response.setHeader('Content-Type', 'audio/x-mpegurl');
       response.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
       return response.send(content);
     };
+
 
     if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
       return servePlaylistWithKey(PLAYLIST_CACHE_FILE, key, res);
@@ -129,7 +130,7 @@ app.get('/api/playlist', async (req, res) => {
 });
 
 // --- Dynamic IDC Stream redirection (302 Redirect) ---
-app.get('/api/idc/stream', async (req, res) => {
+app.get(['/api/idc/stream', '/api/idc/stream/video.ts'], async (req, res) => {
   const { channel, key } = req.query;
   if (!channel || !key) {
     return res.status(400).send('Bad Request: missing channel or key');
@@ -173,8 +174,21 @@ app.get('/api/idc/stream', async (req, res) => {
       const rawUrl = resObj.url;
       const cleanUrl = rawUrl.split(' ')[0].replace('http/ts://', 'http://');
       
-      console.log(`[IDC Stream Redirection] Resolved channel ${channel} -> 302 redirecting to clean stream URL: ${cleanUrl}`);
-      return res.redirect(302, cleanUrl);
+      // Inject "/video.ts" before "?ticket=" to help strict players detect MPEG-TS format
+      const urlParts = cleanUrl.split('?');
+      const baseUrl = urlParts[0];
+      const queryParams = urlParts[1] ? '?' + urlParts[1] : '';
+      
+      let resolvedUrl = baseUrl;
+      if (resolvedUrl.endsWith('/')) {
+        resolvedUrl += 'video.ts';
+      } else {
+        resolvedUrl += '/video.ts';
+      }
+      resolvedUrl += queryParams;
+
+      console.log(`[IDC Stream Redirection] Resolved channel ${channel} -> 302 redirecting to clean stream URL: ${resolvedUrl}`);
+      return res.redirect(302, resolvedUrl);
     }
     
     console.error(`[IDC Stream Redirection] Channel ${channel} not found or failed to load. Response:`, resObj);

@@ -391,7 +391,7 @@ const fetchIdcChannels = async () => {
             name: c.name,
             group: visibleGroup,
             logo: c.icon ? `https://iptv.idc.md${c.icon}` : '',
-            url: `https://iptvpay-svmorozoww.amvera.io/api/idc/stream?channel=${cId}`,
+            url: `https://iptvpay-svmorozoww.amvera.io/api/idc/stream/video.ts?channel=${cId}`,
             originalUrl: ''
           });
         }
