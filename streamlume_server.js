@@ -91,13 +91,13 @@ app.post('/api/verify', async (req, res) => {
 app.get('/api/playlist', async (req, res) => {
   const { key } = req.query;
   if (!key) {
-    return res.status(401).send('#EXTM3U\n#EXTINF:-1, Пожалуйста введите Premium-ключ в StreamLume!\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
+    return res.status(401).send('#EXTM3U\n#EXTINF:-1, Пожалуйста введите VIP-ключ в StreamLume!\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
   }
 
   try {
     const isValid = await verifyKey(key);
     if (!isValid) {
-      return res.status(401).send('#EXTM3U\n#EXTINF:-1, Неверный или истекший Premium-ключ!\nhttp://iptvpay-svmorozoww.amvera.io/auth_invalid');
+      return res.status(401).send('#EXTM3U\n#EXTINF:-1, Неверный или истекший VIP-ключ!\nhttp://iptvpay-svmorozoww.amvera.io/auth_invalid');
     }
 
     const fs = require('fs');
@@ -176,7 +176,7 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
     const newKey = await generateKey(telegramId, parseInt(duration));
     await markOrderProcessed(merchantOrderId);
 
-    await bot.telegram.sendMessage(telegramId, `✅ *Оплата подтверждена (Free-Kassa)!*\n\nТвой Premium-доступ активирован.\n\nКлюч: \`${newKey}\``, {
+    await bot.telegram.sendMessage(telegramId, `✅ *Оплата подтверждена (Free-Kassa)!*\n\nТвой VIP-доступ активирован.\n\nКлюч: \`${newKey}\``, {
       parse_mode: 'Markdown'
     });
 
@@ -256,9 +256,9 @@ bot.hears('💎 Получить доступ', async (ctx) => {
 
 bot.action('method_fk', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
-    [Markup.button.callback('🌙 1 месяц — 300 ₽', 'pay_fk_30_300')],
-    [Markup.button.callback('🌟 3 месяца — 800 ₽', 'pay_fk_90_800')],
-    [Markup.button.callback('👑 1 год — 2500 ₽', 'pay_fk_365_2500')]
+    [Markup.button.callback('🌙 VIP 1 месяц — 100 ₽', 'pay_fk_30_100')],
+    [Markup.button.callback('🌟 VIP 3 месяца — 300 ₽', 'pay_fk_90_300')],
+    [Markup.button.callback('👑 VIP 1 год — 500 ₽', 'pay_fk_365_500')]
   ]);
 
   ctx.reply('Выберите тарифный план (Оплата через Free-Kassa):', tariffs);
@@ -308,9 +308,9 @@ bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
 
 bot.action('method_crypto', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
-    [Markup.button.callback('🌙 1 месяц — 3 USDT', 'pay_30_3')],
-    [Markup.button.callback('🌟 3 месяца — 8 USDT', 'pay_90_8')],
-    [Markup.button.callback('👑 1 год — 25 USDT', 'pay_365_25')]
+    [Markup.button.callback('🌙 VIP 1 месяц — 1 USDT', 'pay_30_1')],
+    [Markup.button.callback('🌟 VIP 3 месяца — 3 USDT', 'pay_90_3')],
+    [Markup.button.callback('👑 VIP 1 год — 5 USDT', 'pay_365_5')]
   ]);
 
   ctx.reply('Выберите тарифный план для оплаты в USDT:', tariffs);
@@ -335,7 +335,7 @@ bot.action(/pay_(\d+)_(\d+)/, async (ctx) => {
   try {
     await ctx.answerCbQuery();
     const invoice = await cryptoPay.createInvoice('USDT', amount, {
-      description: `StreamLume Premium: ${duration} дней`,
+      description: `StreamLume VIP: ${duration} дней`,
       payload: JSON.stringify({ telegramId, duration })
     });
 
@@ -371,7 +371,7 @@ bot.action(/check_(\d+)/, async (ctx) => {
       await markOrderProcessed(orderId);
 
       await ctx.answerCbQuery('Оплата подтверждена!');
-      await ctx.editMessageText(`✅ *Оплата прошла успешно!*\n\nТвой Premium-доступ активирован.\n\nКлюч: \`${newKey}\``, { parse_mode: 'Markdown' });
+      await ctx.editMessageText(`✅ *Оплата прошла успешно!*\n\nТвой VIP-доступ активирован.\n\nКлюч: \`${newKey}\``, { parse_mode: 'Markdown' });
     } else {
       await ctx.answerCbQuery('Оплата пока не поступила...', { show_alert: true });
     }
