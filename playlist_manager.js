@@ -2,11 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
-const { db } = require('./db');
 
 // List of open sources to aggregate
 const OPEN_SOURCES = [
-  { name: 'IPTVru (GitHub)', url: 'https://smolnp.github.io/IPTVru//IPTVru.m3u' }
+  { name: 'IPTVru (GitHub)', url: 'https://smolnp.github.io/IPTVru//IPTVru.m3u' },
+  { name: 'iptv-org (Russian)', url: 'https://iptv-org.github.io/iptv/languages/rus.m3u' },
+  { name: 'Free-TV (Russia)', url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_russia.m3u8' }
 ];
 
 // File cache path
@@ -25,10 +26,6 @@ if (!PLAYLIST_CACHE_FILE) {
     PLAYLIST_CACHE_FILE = path.join(__dirname, 'playlist.m3u');
   }
 }
-
-// Keep track of the active session ID (sid) and UUID for IDC
-let idcSid = null;
-let idcUuid = null;
 
 // Helpers to get secure HTTPS requests
 const fetchText = (url) => {
@@ -81,29 +78,33 @@ const checkStreamHealth = (url) => {
     if (!url || !url.startsWith('http')) return resolve(false);
     
     // Quick ping with 2-second timeout
-    const urlObj = new URL(url);
-    const client = url.startsWith('https') ? https : http;
-    
-    const req = client.request({
-      method: 'GET',
-      hostname: urlObj.hostname,
-      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
-      path: urlObj.pathname + urlObj.search,
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      timeout: 2000
-    }, (res) => {
-      // Any 2xx or 3xx response indicates the stream is active
-      const active = res.statusCode >= 200 && res.statusCode < 400;
-      res.destroy(); // Instantly close the connection
-      resolve(active);
-    });
+    try {
+      const urlObj = new URL(url);
+      const client = url.startsWith('https') ? https : http;
+      
+      const req = client.request({
+        method: 'GET',
+        hostname: urlObj.hostname,
+        port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 2000
+      }, (res) => {
+        // Any 2xx or 3xx response indicates the stream is active
+        const active = res.statusCode >= 200 && res.statusCode < 400;
+        res.destroy(); // Instantly close the connection
+        resolve(active);
+      });
 
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => {
-      req.destroy();
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+      req.end();
+    } catch (e) {
       resolve(false);
-    });
-    req.end();
+    }
   });
 };
 
@@ -161,302 +162,47 @@ const parseM3U = (text) => {
   return channels;
 };
 
-// Get or pair the IDC UUID
-const getOrRegisterIdcUuid = async () => {
-  // Check if we already have it in SQLite
-  try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'idc_uuid'").get();
-    if (row) {
-      idcUuid = row.value;
-      return idcUuid;
-    }
-  } catch (e) {
-    // Table might not exist, we will create it in streamlume_server.js
-  }
-
-  // Generate new UUID using IDC's get-uid endpoint
-  try {
-    const deviceId = 'streamlume_server_' + Math.random().toString(36).substring(2, 10);
-    const response = await fetchText(`https://iptvn.idc.md/api/v3/get-uid?id_device=${deviceId}`);
-    const resObj = JSON.parse(response);
-    if (resObj && resObj.uid) {
-      idcUuid = resObj.uid;
-      
-      // Save to SQLite
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(idcUuid);
-      console.log(`[IDC Integration] Registered new UUID: ${idcUuid}`);
-      return idcUuid;
-    }
-  } catch (err) {
-    console.error('[IDC Integration] Failed to register UUID:', err.message);
-  }
-  return idcUuid;
-};
-
-const postMultipart = (url, fields) => {
-  return new Promise((resolve, reject) => {
-    const boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
-    const bodyParts = [];
-    for (const [k, v] of Object.entries(fields)) {
-      bodyParts.push(`--${boundary}`);
-      bodyParts.push(`Content-Disposition: form-data; name="${k}"`);
-      bodyParts.push('');
-      bodyParts.push(v.toString());
-    }
-    bodyParts.push(`--${boundary}--`);
-    bodyParts.push('');
-    const bodyData = Buffer.from(bodyParts.join('\r\n'), 'utf-8');
-
-    const parsed = new URL(url);
-    const client = url.startsWith('https') ? https : http;
-    
-    const options = {
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search,
-      method: 'POST',
-      headers: {
-        'User-Agent': 'okhttp/4.9.2',
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': bodyData.length
-      },
-      timeout: 10000
-    };
-
-    const req = client.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 400) {
-          const err = new Error(`HTTP Error ${res.statusCode}`);
-          err.responseBody = data;
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      });
-    });
-
-    req.on('error', (err) => reject(err));
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Timeout'));
-    });
-
-    req.write(bodyData);
-    req.end();
-  });
-};
-
-// Obtain or refresh fresh Session ID (sid) from IDC
-const getOrRefreshIdcSession = async () => {
-  try {
-    const loginRow = db.prepare("SELECT value FROM settings WHERE key = 'idc_login'").get();
-    const passRow = db.prepare("SELECT value FROM settings WHERE key = 'idc_password'").get();
-    if (!loginRow || !passRow) {
-      console.log('[IDC Integration] No saved credentials found in database.');
-      return null;
-    }
-
-    const login = loginRow.value;
-    const pass = passRow.value;
-
-    const result = await loginIdc(login, pass);
-    if (result && result.success) {
-      return {
-        sid: result.uuid,
-        sidName: 'SSID'
-      };
-    }
-  } catch (err) {
-    console.error('[IDC Integration] Auto-refresh login failed:', err.message);
-  }
-  return null;
-};
-
-// Obtain fresh Session ID (sid) from IDC (for compatibility)
-const updateIdcSession = async () => {
-  const session = await getOrRefreshIdcSession();
-  return !!session;
-};
-
-// Perform in-app login via legacy JSON API
-const loginIdc = async (login, password) => {
-  const numLogin = parseInt(login, 10);
-  const numPassword = parseInt(password, 10);
-  if (isNaN(numLogin) || isNaN(numPassword)) {
-    throw new Error('Логин (номер договора) и пароль (PIN) должны быть целыми числами!');
-  }
-
-  let deviceId = '';
-  try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'idc_device_id'").get();
-    if (row) {
-      deviceId = row.value;
-    } else {
-      deviceId = require('crypto').randomBytes(8).toString('hex');
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_device_id', ?)").run(deviceId);
-    }
-  } catch (e) {
-    deviceId = require('crypto').randomBytes(8).toString('hex');
-  }
-
-  let softid = '';
-  try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'idc_softid'").get();
-    if (row) {
-      softid = row.value;
-    } else {
-      softid = require('crypto').randomUUID();
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_softid', ?)").run(softid);
-    }
-  } catch (e) {
-    softid = require('crypto').randomUUID();
-  }
-
-  const url = `https://iptvn.idc.md/api/json/login?settings=all`;
-  const fields = {
-    login: numLogin,
-    pass: numPassword,
-    softid: softid,
-    cli_serial: deviceId
-  };
-
-  try {
-    console.log(`[IDC Integration] Logging in via legacy API: account ${numLogin}, device ${deviceId}, softid ${softid}`);
-    const response = await postMultipart(url, fields);
-    const resObj = JSON.parse(response);
-
-    if (resObj.error) {
-      throw new Error(resObj.error.message || 'Ошибка авторизации');
-    }
-
-    const sid = resObj.sid;
-    const sidName = resObj.sid_name || 'SSID';
-
-    console.log(`[IDC Integration] Login successful! SSID = ${sid}`);
-
-    // Save successful credentials and session to SQLite
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_login', ?)").run(numLogin.toString());
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_password', ?)").run(numPassword.toString());
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(sid); // keep compatibility
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_sid', ?)").run(sid);
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_sid_name', ?)").run(sidName);
-
-    idcSid = sid;
-    idcUuid = sid;
-
-    return {
-      success: true,
-      uuid: sid,
-      data: resObj
-    };
-  } catch (err) {
-    console.error(`[IDC Integration] Login failed:`, err.message);
-    throw err;
-  }
-};
-
-// Fetch official channels from IDC
-const fetchIdcChannels = async () => {
-  const session = await getOrRefreshIdcSession();
-  if (!session) {
-    console.log('[IDC Integration] Skipping IDC aggregation: No active paired account.');
-    return [];
-  }
-
-  try {
-    const { sid, sidName } = session;
-    console.log(`[IDC Integration] Fetching channel list using ${sidName}=${sid}`);
-    
-    const passRow = db.prepare("SELECT value FROM settings WHERE key = 'idc_password'").get();
-    const pin = passRow ? passRow.value : '';
-
-    const url = `https://iptvn.idc.md/api/json/channel_list?${sidName}=${sid}&icon=png&show=all&protect_code=${pin}`;
-    const response = await fetchText(url);
-    const resObj = JSON.parse(response);
-
-    if (resObj.error) {
-      console.error('[IDC Integration] Channel list API error:', resObj.error.message);
-      return [];
-    }
-
-    const groups = resObj.groups || [];
-    console.log(`[IDC Integration] Loaded ${groups.length} channel categories from IDC.`);
-    
-    const aggregated = [];
-    const seenIds = new Set();
-
-    for (const group of groups) {
-      const categoryName = group.name;
-      const channels = group.channels || [];
-      
-      for (const c of channels) {
-        if (c.is_video === 0) continue; // Skip radio channels
-        
-        const cId = c.id;
-        if (!seenIds.has(cId)) {
-          seenIds.add(cId);
-          
-          const visibleGroup = `📺 IDC: ${categoryName}`;
-          
-          aggregated.push({
-            id: cId,
-            name: c.name,
-            group: visibleGroup,
-            logo: c.icon ? `https://iptv.idc.md${c.icon}` : '',
-            url: `https://iptvpay-svmorozoww.amvera.io/api/idc/stream/video.ts?channel=${cId}`,
-            originalUrl: ''
-          });
-        }
-      }
-    }
-
-    console.log(`[IDC Integration] Extracted ${aggregated.length} unique video channels from categories.`);
-    return aggregated;
-  } catch (err) {
-    console.error('[IDC Integration] Failed to fetch IDC channels:', err.message);
-  }
-  return [];
+// Normalize channel name for strict deduplication
+const normalizeChannelName = (name) => {
+  if (!name) return '';
+  return name.toLowerCase()
+    .replace(/ё/g, 'е')
+    // Remove HD, FHD, UHD, SD, T2, 50fps, etc. as standalone words or in bounds
+    .replace(/\b(hd|fhd|uhd|sd|mp4|ru|рф|снг|cis|t2|\+2|\+4|\+6|50fps|резерв|premium)\b/gi, '')
+    // Remove parenthesized or bracketed suffixes, e.g., (резерв), [SD], {HD}
+    .replace(/[\(\[\{].*?[\)\]\}]/g, '')
+    // Remove all non-alphanumeric characters to avoid space/punctuation mismatch
+    .replace(/[^a-zа-я0-9]/g, '')
+    .trim();
 };
 
 // Core Playlist Aggregator and Scanner
 const rebuildPlaylist = async () => {
   console.log('[Playlist Manager] Starting playlist rebuild...');
   
-  let aggregatedChannels = [];
+  const channelsMap = new Map();
 
-  // 1. Fetch IDC Premium Channels (Separate folder)
-  const idcChannels = await fetchIdcChannels();
-  aggregatedChannels = [...aggregatedChannels, ...idcChannels];
-
-  // 2. Fetch Open sources and check health in parallel batches
+  // 1. Fetch Open sources and group them by normalized name
   for (const source of OPEN_SOURCES) {
     try {
       console.log(`[Playlist Manager] Fetching source: ${source.name}`);
       const text = await fetchText(source.url);
       const parsed = parseM3U(text);
-      console.log(`[Playlist Manager] Parsed ${parsed.length} channels. Performing health check...`);
+      console.log(`[Playlist Manager] Parsed ${parsed.length} channels from ${source.name}`);
       
-      // Batch Health Check (concurrency: 15 to stay extremely lightweight on our ранимый server!)
-      const batchSize = 15;
-      for (let i = 0; i < parsed.length; i += batchSize) {
-        const batch = parsed.slice(i, i + batchSize);
-        const results = await Promise.all(batch.map(async (c) => {
-          const isAlive = await checkStreamHealth(c.url);
-          return isAlive ? c : null;
-        }));
-
-        // Add responsive channels
-        results.forEach(c => {
-          if (c) {
-            aggregatedChannels.push({
-              name: c.name,
-              group: categorizeChannel(c.name),
-              logo: c.logo,
-              url: c.url
-            });
-          }
+      for (const c of parsed) {
+        const normName = normalizeChannelName(c.name);
+        if (!normName) continue;
+        
+        if (!channelsMap.has(normName)) {
+          channelsMap.set(normName, []);
+        }
+        
+        channelsMap.get(normName).push({
+          name: c.name,
+          group: c.group || categorizeChannel(c.name),
+          logo: c.logo,
+          url: c.url
         });
       }
     } catch (err) {
@@ -464,23 +210,91 @@ const rebuildPlaylist = async () => {
     }
   }
 
+  console.log(`[Playlist Manager] Grouped into ${channelsMap.size} unique channels. Sorting alternatives...`);
+
+  // Sort alternatives for each channel (HD first)
+  const channelStates = [];
+  for (const [normName, alternatives] of channelsMap.entries()) {
+    alternatives.sort((a, b) => {
+      const aHd = /hd|fhd|uhd/i.test(a.name);
+      const bHd = /hd|fhd|uhd/i.test(b.name);
+      if (aHd && !bHd) return -1;
+      if (!aHd && bHd) return 1;
+      return 0;
+    });
+    
+    channelStates.push({
+      normName,
+      alternatives,
+      currentIdx: 0,
+      resolved: false
+    });
+  }
+
+  const activeChannels = [];
+  const batchSize = 15;
+
+  console.log('[Playlist Manager] Performing intelligent batch health checks...');
+
+  let iteration = 1;
+  while (true) {
+    // Gather all streams that need to be checked in this pass
+    const checkQueue = [];
+    for (const state of channelStates) {
+      if (!state.resolved && state.currentIdx < state.alternatives.length) {
+        checkQueue.push({
+          state,
+          channel: state.alternatives[state.currentIdx]
+        });
+      }
+    }
+
+    if (checkQueue.length === 0) {
+      break; // No more channels/alternatives to check
+    }
+
+    console.log(`[Playlist Manager] Iteration ${iteration}: Checking ${checkQueue.length} streams...`);
+
+    // Process in batches
+    for (let i = 0; i < checkQueue.length; i += batchSize) {
+      const batch = checkQueue.slice(i, i + batchSize);
+      
+      const results = await Promise.all(batch.map(async (item) => {
+        const isAlive = await checkStreamHealth(item.channel.url);
+        return { item, isAlive };
+      }));
+
+      for (const res of results) {
+        const { item, isAlive } = res;
+        if (isAlive) {
+          item.state.resolved = true;
+          activeChannels.push({
+            name: item.channel.name,
+            group: categorizeChannel(item.channel.name), // Recategorize to keep groups clean
+            logo: item.channel.logo,
+            url: item.channel.url
+          });
+        } else {
+          item.state.currentIdx++; // Move to next alternative for subsequent iterations
+        }
+      }
+    }
+
+    iteration++;
+  }
+
   // 3. Generate structured M3U file
   let m3uText = '#EXTM3U\n';
-  for (const c of aggregatedChannels) {
+  for (const c of activeChannels) {
     m3uText += `#EXTINF:-1 tvg-logo="${c.logo}" group-title="${c.group}",${c.name}\n${c.url}\n`;
   }
 
   fs.writeFileSync(PLAYLIST_CACHE_FILE, m3uText, 'utf8');
-  console.log(`[Playlist Manager] Successfully rebuilt playlist. Total active channels: ${aggregatedChannels.length}`);
-  return aggregatedChannels.length;
+  console.log(`[Playlist Manager] Rebuilt playlist successfully. Active: ${activeChannels.length} / Unique: ${channelsMap.size}`);
+  return activeChannels.length;
 };
 
 module.exports = {
   rebuildPlaylist,
-  getOrRegisterIdcUuid,
-  fetchIdcChannels,
-  updateIdcSession,
-  loginIdc,
-  getOrRefreshIdcSession,
   PLAYLIST_CACHE_FILE
 };

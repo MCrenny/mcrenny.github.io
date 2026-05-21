@@ -5,7 +5,7 @@ const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
-const { rebuildPlaylist, getOrRegisterIdcUuid, updateIdcSession, loginIdc, getOrRefreshIdcSession, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
+const { rebuildPlaylist, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
 
 const app = express();
 app.use(cors());
@@ -101,12 +101,8 @@ app.get('/api/playlist', async (req, res) => {
     }
 
     const fs = require('fs');
-    const servePlaylistWithKey = (filePath, key, response) => {
-      let content = fs.readFileSync(filePath, 'utf8');
-      content = content.replace(
-        /(\/api\/idc\/stream(?:\/video\.ts)?\?channel=\d+)/g,
-        `$1&key=${encodeURIComponent(key)}`
-      );
+    const servePlaylistWithKey = (filePath, response) => {
+      const content = fs.readFileSync(filePath, 'utf8');
       response.setHeader('Content-Type', 'audio/x-mpegurl');
       response.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
       return response.send(content);
@@ -114,12 +110,12 @@ app.get('/api/playlist', async (req, res) => {
 
 
     if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
-      return servePlaylistWithKey(PLAYLIST_CACHE_FILE, key, res);
+      return servePlaylistWithKey(PLAYLIST_CACHE_FILE, res);
     } else {
       // If cache file is missing, trigger rebuild and serve
       await rebuildPlaylist();
       if (fs.existsSync(PLAYLIST_CACHE_FILE)) {
-        return servePlaylistWithKey(PLAYLIST_CACHE_FILE, key, res);
+        return servePlaylistWithKey(PLAYLIST_CACHE_FILE, res);
       }
       return res.status(500).send('#EXTM3U\n#EXTINF:-1, Ошибка генерации плейлиста на сервере\nhttp://iptvpay-svmorozoww.amvera.io/error');
     }
@@ -129,74 +125,9 @@ app.get('/api/playlist', async (req, res) => {
   }
 });
 
-// --- Dynamic IDC Stream redirection (302 Redirect) ---
-app.get(['/api/idc/stream', '/api/idc/stream/video.ts'], async (req, res) => {
-  const { channel, key } = req.query;
-  if (!channel || !key) {
-    return res.status(400).send('Bad Request: missing channel or key');
-  }
-
-  try {
-    const isValid = await verifyKey(key);
-    if (!isValid) {
-      return res.status(401).send('Unauthorized: Invalid Premium Key');
-    }
-
-    const session = await getOrRefreshIdcSession();
-    if (!session) {
-      return res.status(503).send('Service Unavailable: No active IDC account. Use /login_idc first.');
-    }
-
-    const { sid, sidName } = session;
-
-    // Call legacy IDC API to fetch stream URL for channel
-    const https = require('https');
-    const fetchJson = (url) => new Promise((resolve, reject) => {
-      https.get(url, { 
-        headers: { 'User-Agent': 'okhttp/4.9.2' }, 
-        timeout: 6000 
-      }, (res) => {
-        let d = '';
-        res.on('data', chunk => d += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(d));
-          } catch(e) { reject(e); }
-        });
-      }).on('error', reject);
-    });
-
-    const url = `https://iptvn.idc.md/api/json/get_url?${sidName}=${sid}&cid=${channel}`;
-    const resObj = await fetchJson(url);
-
-    if (resObj && resObj.url) {
-      // Parse custom stream format e.g. "http/ts://[IP]:[PORT]/?ticket=[TICKET] :http-caching=3000 :no-http-reconnect"
-      const rawUrl = resObj.url;
-      const cleanUrl = rawUrl.split(' ')[0].replace('http/ts://', 'http://');
-      
-      // Inject "/video.ts" before "?ticket=" to help strict players detect MPEG-TS format
-      const urlParts = cleanUrl.split('?');
-      const baseUrl = urlParts[0];
-      const queryParams = urlParts[1] ? '?' + urlParts[1] : '';
-      
-      let resolvedUrl = baseUrl;
-      if (resolvedUrl.endsWith('/')) {
-        resolvedUrl += 'video.ts';
-      } else {
-        resolvedUrl += '/video.ts';
-      }
-      resolvedUrl += queryParams;
-
-      console.log(`[IDC Stream Redirection] Resolved channel ${channel} -> 302 redirecting to clean stream URL: ${resolvedUrl}`);
-      return res.redirect(302, resolvedUrl);
-    }
-    
-    console.error(`[IDC Stream Redirection] Channel ${channel} not found or failed to load. Response:`, resObj);
-    res.status(404).send('Channel not found or stream offline');
-  } catch (err) {
-    console.error('IDC Stream redirect error:', err.message);
-    res.status(500).send('Internal Server Error');
-  }
+// --- Dynamic IDC Stream redirection (Disabled) ---
+app.get(['/api/idc/stream', '/api/idc/stream/video.ts'], (req, res) => {
+  res.status(410).send('Интеграция с IDC отключена. Пожалуйста, обновите плейлист в приложении.');
 });
 
 // --- Redirects for FreeKassa ---
@@ -501,19 +432,27 @@ bot.hears('🆘 Поддержка', (ctx) => {
 // Start servers
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
-  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.6 ACTIVE ---`);
+  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.7 ACTIVE ---`);
 
   // Background initialization to prevent blocking the thread
   setTimeout(async () => {
     try {
-      console.log('[StreamLume Startup] Checking IDC session pairing status...');
-      await updateIdcSession();
       console.log('[StreamLume Startup] Rebuilding master playlist in background...');
       await rebuildPlaylist();
     } catch (e) {
       console.error('[StreamLume Startup] Background init error:', e.message);
     }
   }, 1000);
+
+  // Auto-rebuild playlist every 6 hours
+  setInterval(async () => {
+    try {
+      console.log('[Playlist Scheduler] Rebuilding master playlist...');
+      await rebuildPlaylist();
+    } catch (e) {
+      console.error('[Playlist Scheduler] Periodic rebuild error:', e.message);
+    }
+  }, 6 * 60 * 60 * 1000);
 });
 
 if (BOT_TOKEN) {
@@ -530,97 +469,7 @@ if (BOT_TOKEN) {
     }
   });
 
-  bot.command('pair_idc', async (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;
-    const args = ctx.message.text.split(' ');
-    
-    if (args.length > 1) {
-      const customUuid = args[1].trim();
-      if (customUuid.length < 30) {
-        return ctx.reply('❌ Ошибка: Некорректный UUID. Длина должна быть не менее 30 символов.');
-      }
-      
-      try {
-        const { db } = require('./db');
-        db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('idc_uuid', ?)").run(customUuid);
-        
-        ctx.reply(`⏳ Проверяем сопряжение для UUID: \`${customUuid}\`...`, { parse_mode: 'Markdown' });
-        
-        const isOk = await updateIdcSession();
-        if (isOk) {
-          ctx.reply(`✅ *IDC авторизован!*\n\nУстройство с UUID \`${customUuid}\` успешно подключено к нашему серверу. Каналы будут автоматически добавлены в категорию *📺 IDC Премиум* при следующем обновлении плейлиста.`, { parse_mode: 'Markdown' });
-        } else {
-          ctx.reply(`⚠️ UUID \`${customUuid}\` сохранён в базе, но IDC API пока возвращает ошибку (код 422/unauthorized).\n\nУбедитесь, что этот UUID взят из рабочей официальной программы IDC TV на вашем телевизоре или из вашего Личного Кабинета IDC.`, { parse_mode: 'Markdown' });
-        }
-      } catch (e) {
-        ctx.reply(`❌ Ошибка сохранения: ${e.message}`);
-      }
-      return;
-    }
-
-    try {
-      const uuid = await getOrRegisterIdcUuid();
-      if (uuid) {
-        ctx.reply(`🔗 *Авторизация IDC IPTV*\n\n1. Ваш UUID устройства: \`${uuid}\`\n2. Перейдите по ссылке ниже для привязки устройства к вашему аккаунту в ЛК IDC:\n\nhttps://idc.md/app/iptv/connect?uuid=${uuid}\n\n💡 *СОВЕТ-ОБХОД:* Если при переходе по ссылке вы видите ошибку *«Ваше приложение устарело»*, это ограничение биллинга IDC. Вы можете просто скопировать UUID уже работающего у вас устройства (ТВ-приставки или телефона) из Личного Кабинета IDC и привязать его напрямую командой:\n\n\`\/pair_idc [ВАШ_РАБОЧИЙ_UUID]\``, { parse_mode: 'Markdown' });
-      } else {
-        ctx.reply('❌ Ошибка: Не удалось сгенерировать UUID от серверов IDC.');
-      }
-    } catch (e) {
-      ctx.reply(`❌ Ошибка: ${e.message}`);
-    }
-  });
-
-  bot.command('login_idc', async (ctx) => {
-    if (ctx.from.id !== ADMIN_ID) return;
-
-    // Immediately try to delete the message containing the password for security
-    try {
-      await ctx.deleteMessage();
-    } catch (e) {
-      console.warn('Failed to delete sensitive login message:', e.message);
-    }
-
-    const args = ctx.message.text.split(' ');
-    if (args.length < 3) {
-      return ctx.reply('❌ Ошибка!\n\nИспользование: `/login_idc [номер_договора] [PIN_пароль]`\n\n💡 *Справка:* Параметры должны быть целыми числами. Например: `/login_idc 123456 1111`\n\n*(Сообщение с паролем будет автоматически удалено ботом для безопасности)*', { parse_mode: 'Markdown' });
-    }
-
-    const loginStr = args[1].trim();
-    const passwordStr = args[2].trim();
-
-    const statusMsg = await ctx.reply('⏳ Выполняю безопасный вход в приложение IDC и сопряжение устройства...');
-
-    try {
-      const result = await loginIdc(loginStr, passwordStr);
-      if (result && result.success) {
-        await ctx.telegram.editMessageText(
-          ctx.chat.id,
-          statusMsg.message_id,
-          null,
-          `✅ *Вход в IDC выполнен успешно!*\n\nУстройство успешно авторизовано в биллинге IDC.\n🌐 Зарегистрирован UUID: \`${result.uuid}\`\n\nЗапускаю пересборку плейлиста для активации каналов...`,
-          { parse_mode: 'Markdown' }
-        );
-
-        // Rebuild playlist to fetch the IDC channels immediately
-        const count = await rebuildPlaylist();
-        
-        await ctx.telegram.sendMessage(
-          ctx.chat.id,
-          `🎉 *Все системы IDC IPTV активны!*\n\nОбновлено каналов в плейлисте: **${count}**.\nКатегория *📺 IDC Премиум* теперь доступна для просмотра!`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        null,
-        `❌ *Ошибка авторизации IDC*:\n\n${err.message}\n\nУбедитесь, что номер договора и PIN-код введены верно и являются целыми числами.`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-  });
+  // Интеграция с IDC отключена
 
   // Команды бота
   bot.command('broadcast', async (ctx) => {
