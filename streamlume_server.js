@@ -192,7 +192,7 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
 const bot = new Telegraf(BOT_TOKEN);
 
 const mainKeyboard = Markup.keyboard([
-  ['💎 Получить доступ', '🎁 Пробный период'],
+  ['💎 Получить доступ', '🎁 Бесплатный доступ'],
   ['🔑 Мой ключ', '📖 Инструкция'],
   ['🆘 Поддержка']
 ]).resize();
@@ -232,17 +232,22 @@ bot.action('admin_stats', async (ctx) => {
   await ctx.answerCbQuery();
 });
 
-bot.hears('🎁 Пробный период', async (ctx) => {
+bot.hears('🎁 Бесплатный доступ', async (ctx) => {
   const telegramId = ctx.from.id.toString();
   const alreadyUsed = await hasUsedTrial(telegramId);
 
   if (alreadyUsed) {
-    ctx.reply('❌ Вы уже использовали пробный период.');
+    const existingKey = await getKeyByTelegramId(telegramId);
+    if (existingKey) {
+      ctx.reply(`✅ Вы уже получали бесплатный доступ.\n\nВаш ключ: \`${existingKey}\``, { parse_mode: 'Markdown' });
+    } else {
+      ctx.reply('❌ Вы уже получали бесплатный доступ.');
+    }
     return;
   }
 
-  const trialKey = await generateKey(telegramId, 3, true);
-  ctx.reply(`✅ Ваш пробный доступ на 3 дня активирован!\n\nКлюч: \`${trialKey}\`\n\nВведите этот ключ в приложении для доступа.`, { parse_mode: 'Markdown' });
+  const freeKey = await generateKey(telegramId, 36500, true);
+  ctx.reply(`✅ Ваш бесплатный бессрочный доступ активирован!\n\nКлюч: \`${freeKey}\`\n\nВведите этот ключ в приложении для доступа.`, { parse_mode: 'Markdown' });
 });
 
 bot.hears('💎 Получить доступ', async (ctx) => {
@@ -256,7 +261,6 @@ bot.hears('💎 Получить доступ', async (ctx) => {
 
 bot.action('method_fk', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
-    [Markup.button.callback('🌙 VIP 1 месяц — 100 ₽', 'pay_fk_30_100')],
     [Markup.button.callback('🌟 VIP 3 месяца — 300 ₽', 'pay_fk_90_300')],
     [Markup.button.callback('👑 VIP 1 год — 500 ₽', 'pay_fk_365_500')]
   ]);
@@ -308,7 +312,6 @@ bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
 
 bot.action('method_crypto', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
-    [Markup.button.callback('🌙 VIP 1 месяц — 1 USDT', 'pay_30_1')],
     [Markup.button.callback('🌟 VIP 3 месяца — 3 USDT', 'pay_90_3')],
     [Markup.button.callback('👑 VIP 1 год — 5 USDT', 'pay_365_5')]
   ]);
