@@ -261,7 +261,8 @@ bot.hears('💎 Получить доступ', async (ctx) => {
 
 bot.action('method_fk', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
-    [Markup.button.callback('🌟 VIP 3 месяца — 300 ₽', 'pay_fk_90_300')],
+    [Markup.button.callback('🌟 VIP 3 месяца — 100 ₽', 'pay_fk_90_100')],
+    [Markup.button.callback('⚡ VIP 6 месяцев — 300 ₽', 'pay_fk_180_300')],
     [Markup.button.callback('👑 VIP 1 год — 500 ₽', 'pay_fk_365_500')]
   ]);
 
@@ -312,7 +313,8 @@ bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
 
 bot.action('method_crypto', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
-    [Markup.button.callback('🌟 VIP 3 месяца — 3 USDT', 'pay_90_3')],
+    [Markup.button.callback('🌟 VIP 3 месяца — 1 USDT', 'pay_90_1')],
+    [Markup.button.callback('⚡ VIP 6 месяцев — 3 USDT', 'pay_180_3')],
     [Markup.button.callback('👑 VIP 1 год — 5 USDT', 'pay_365_5')]
   ]);
 
@@ -399,24 +401,27 @@ bot.hears('📖 Инструкция', async (ctx) => {
   const apkPath = path.join(__dirname, 'landing/StreamLume.apk');
 
   await ctx.reply('🚀 *Как начать смотреть StreamLume:*\n\n' +
-    '1. Установи APK-файл ниже на свой Android-телефон или ТВ.\n' +
-    '2. Запусти приложение и введи свой Premium-ключ.\n\n' +
-    '📺 Приятного просмотра!', { parse_mode: 'Markdown' });
+    '1. Установите приложение из официальных магазинов или скачайте APK-файл ниже.\n' +
+    '2. Запустите приложение и введите свой Premium-ключ.\n\n' +
+    '📺 *Официальные магазины:*\n' +
+    '• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n' +
+    '• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)\n\n' +
+    '📺 Приятного просмотра!', { parse_mode: 'Markdown', disable_web_page_preview: true });
 
   if (fs.existsSync(apkPath)) {
     try {
       await ctx.replyWithDocument({ source: apkPath, filename: 'StreamLume.apk' });
     } catch (e) {
       console.error('Failed to send APK:', e);
-      ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1M4YMuoXpXHAn-Sb1ATIwPXoK6i4rSYSR/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/7T5s/r8m13VAAT)`, { parse_mode: 'Markdown' });
+      ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)\n• [Google Drive](https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=drive_link)`, { parse_mode: 'Markdown', disable_web_page_preview: true });
     }
   } else {
     try {
-      await ctx.reply(`🚀 Скачайте приложение прямо здесь или по ссылкам:\n\n1. [Google Drive](https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=sharing)\n2. [Cloud Mail.ru](https://cloud.mail.ru/public/7T5s/r8m13VAAT)`, { parse_mode: 'Markdown' });
+      await ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)\n• [Google Drive](https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=drive_link)`, { parse_mode: 'Markdown', disable_web_page_preview: true });
       
       // Отправка APK файла напрямую через Telegram
       await ctx.replyWithDocument('BQACAgIAAxkBAA07agijg_t85kEjqw6OYQER0BJlnhcAAi6bAAK0-khIfr9HSAFiTAo7BA', {
-        caption: '📱 Установочный файл StreamLume (v1.0.0)'
+        caption: '📱 Установочный файл StreamLume (v1.0.9)'
       });
     } catch (err) {
       console.error('Error sending document:', err.message);
