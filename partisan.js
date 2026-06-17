@@ -1,6 +1,7 @@
 const { TelegramClient, Api } = require('telegram');
 const { StringSession } = require('telegram/sessions/index.js');
 const { NewMessage } = require('telegram/events/index.js');
+const { ConnectionTCPObfuscated } = require('telegram/network/connection');
 const { GoogleGenAI } = require('@google/genai');
 const dotenv = require('dotenv');
 const { 
@@ -137,6 +138,7 @@ async function startPartisanBot(retryCount = 0) {
 
   console.log('[Partisan] Запуск партизанского отряда...');
   const client = new TelegramClient(new StringSession(sessionString), apiId, apiHash, {
+    connection: ConnectionTCPObfuscated,
     connectionRetries: 5,
   });
   client.setLogLevel("error");
