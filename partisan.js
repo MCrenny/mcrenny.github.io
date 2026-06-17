@@ -138,7 +138,7 @@ async function startPartisanBot(retryCount = 0) {
 
   console.log('[Partisan] Запуск партизанского отряда...');
   const client = new TelegramClient(new StringSession(sessionString), apiId, apiHash, {
-    connection: ConnectionTCPObfuscated,
+    useWSS: true,
     connectionRetries: 5,
   });
   client.setLogLevel("error");
