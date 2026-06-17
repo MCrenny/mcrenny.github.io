@@ -6,6 +6,7 @@ const { Telegraf, Markup } = require('telegraf');
 const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
 const { rebuildPlaylist, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
+const { startPartisanBot, botStatus, botLogs } = require('./partisan');
 
 const app = express();
 app.use(cors());
@@ -68,6 +69,13 @@ if (CRYPTO_PAY_TOKEN) {
 }
 
 // --- Express API ---
+app.get('/api/partisan/status', (req, res) => {
+  res.json({
+    status: botStatus,
+    logs: botLogs
+  });
+});
+
 app.post('/api/verify', async (req, res) => {
   const { key } = req.body;
   if (!key) {
@@ -451,6 +459,13 @@ app.listen(PORT, () => {
       console.error('[StreamLume Startup] Background init error:', e.message);
     }
   }, 1000);
+
+  // Инициализация партизанского юзербота в фоне
+  setTimeout(() => {
+    startPartisanBot().catch(err => {
+      console.error('[StreamLume Startup] Failed to start Partisan bot:', err.message);
+    });
+  }, 5000);
 
   // Auto-rebuild playlist every 6 hours
   setInterval(async () => {

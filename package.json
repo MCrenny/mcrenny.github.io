@@ -12,12 +12,15 @@
   "license": "ISC",
   "dependencies": {
     "@foile/crypto-pay-api": "^1.0.4",
+    "@google/genai": "^2.8.0",
     "axios": "^1.16.1",
     "better-sqlite3": "^11.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "fast-xml-parser": "^5.8.0",
-    "telegraf": "^4.16.3"
+    "geoip-lite": "^1.4.10",
+    "telegraf": "^4.16.3",
+    "telegram": "^2.26.22"
   }
 }
