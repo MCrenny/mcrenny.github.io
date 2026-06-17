@@ -117,7 +117,7 @@ async function populateChatMap(client) {
   }
 }
 
-async function startPartisanBot() {
+async function startPartisanBot(retryCount = 0) {
   botStatus.startedAt = new Date().toISOString();
   botStatus.initialized = true;
   botStatus.targetChats = targetChats;
@@ -241,8 +241,16 @@ async function startPartisanBot() {
     }, 60000);
 
   } catch (err) {
-    console.error('[Partisan] Ошибка при инициализации юзербота:', err);
+    console.error(`[Partisan] Ошибка при инициализации юзербота (попытка ${retryCount + 1}):`, err);
     botStatus.error = err.message;
+    
+    const maxRetries = 10;
+    if (retryCount < maxRetries) {
+      console.log(`[Partisan] Перезапуск юзербота через 30 секунд (осталось попыток: ${maxRetries - retryCount})...`);
+      setTimeout(() => {
+        startPartisanBot(retryCount + 1);
+      }, 30000);
+    }
   }
 
   return client;
