@@ -139,6 +139,7 @@ async function startPartisanBot() {
   const client = new TelegramClient(new StringSession(sessionString), apiId, apiHash, {
     connectionRetries: 5,
   });
+  client.setLogLevel("error");
 
   try {
     await client.connect();
