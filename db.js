@@ -72,6 +72,21 @@ try { db.exec("ALTER TABLE keys ADD COLUMN telegram_id TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE keys ADD COLUMN expires_at DATETIME"); } catch (e) {}
 try { db.exec("ALTER TABLE keys ADD COLUMN is_trial INTEGER DEFAULT 0"); } catch (e) {}
 
+// Migration: Сокращаем существующие 100-летние триал-ключи до 3 дней
+try {
+  const updateTrialKeys = db.prepare(`
+    UPDATE keys 
+    SET expires_at = datetime('now', '+3 days') 
+    WHERE is_trial = 1 AND expires_at > datetime('now', '+3 days')
+  `);
+  const info = updateTrialKeys.run();
+  if (info.changes > 0) {
+    console.log(`[DB Migration] Updated ${info.changes} active trial keys to expire in 3 days.`);
+  }
+} catch (e) {
+  console.error('[DB Migration] Error updating trial keys:', e.message);
+}
+
 const generateKey = (telegramId = null, durationDays = 30, isTrial = false) => {
   const prefix = isTrial ? 'TRIAL-' : 'VIP-';
   const newKey = prefix + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString().slice(-4);

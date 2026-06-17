@@ -196,6 +196,77 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
   }
 });
 
+// --- YooMoney Webhook ---
+const handleYooMoneyWebhook = async (req, res) => {
+  console.log('[YooMoney Webhook] Received request:', req.method);
+  console.log('[YooMoney Webhook] Body:', req.body);
+
+  const {
+    notification_type,
+    operation_id,
+    amount,
+    currency,
+    datetime,
+    sender,
+    codepro,
+    label,
+    sha1_hash
+  } = req.body;
+
+  if (!label || !sha1_hash) {
+    console.error('[YooMoney Webhook] Missing required parameters');
+    return res.status(400).send('Bad Request');
+  }
+
+  const crypto = require('crypto');
+  const secret = process.env.YOOMONEY_NOTIFICATION_SECRET || '';
+  
+  // Формула подписи: notification_type&operation_id&amount&currency&datetime&sender&codepro&notification_secret&label
+  const signatureString = `${notification_type}&${operation_id}&${amount}&${currency}&${datetime}&${sender}&${codepro}&${secret}&${label}`;
+  const checkSign = crypto.createHash('sha1').update(signatureString).digest('hex');
+
+  if (sha1_hash.toLowerCase() !== checkSign.toLowerCase()) {
+    console.error(`[YooMoney Webhook] Signature mismatch. Received: ${sha1_hash}, Expected: ${checkSign}`);
+    return res.status(400).send('Invalid signature');
+  }
+
+  try {
+    if (await isOrderProcessed(label)) {
+      console.log(`[YooMoney Webhook] Order ${label} already processed.`);
+      return res.send('OK');
+    }
+
+    const [telegramId, duration] = label.split('_');
+    if (!telegramId || !duration) {
+      console.error('[YooMoney Webhook] Invalid label format:', label);
+      return res.status(400).send('Invalid label');
+    }
+
+    const newKey = await generateKey(telegramId, parseInt(duration));
+    await markOrderProcessed(label);
+
+    await bot.telegram.sendMessage(telegramId, `✅ *Оплата подтверждена (ЮMoney)!*\n\nТвой VIP-доступ активирован.\n\nКлюч: \`${newKey}\``, {
+      parse_mode: 'Markdown'
+    });
+
+    console.log(`[YooMoney Webhook] Order ${label} successfully processed. Key generated: ${newKey}`);
+    res.send('OK');
+  } catch (error) {
+    console.error('[YooMoney Webhook] Error:', error);
+    res.status(500).send('Error');
+  }
+};
+
+app.post('/api/webhooks/yoomoney', express.urlencoded({ extended: true }), handleYooMoneyWebhook);
+
+// Резервный POST-обработчик на корне для форвардинга
+app.post('/', express.urlencoded({ extended: true }), (req, res, next) => {
+  if (req.body && req.body.notification_type) {
+    return handleYooMoneyWebhook(req, res);
+  }
+  next();
+});
+
 // --- Telegram Bot ---
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -254,13 +325,14 @@ bot.hears('🎁 Бесплатный доступ', async (ctx) => {
     return;
   }
 
-  const freeKey = await generateKey(telegramId, 36500, true);
-  ctx.reply(`✅ Ваш бесплатный бессрочный доступ активирован!\n\nКлюч: \`${freeKey}\`\n\nВведите этот ключ в приложении для доступа.`, { parse_mode: 'Markdown' });
+  const freeKey = await generateKey(telegramId, 3, true); // 3 days trial
+  ctx.reply(`✅ Ваш бесплатный пробный доступ на 3 дня активирован!\n\nКлюч: \`${freeKey}\`\n\nСрок действия: 3 дня. Введите этот ключ в приложении для доступа. После окончания теста вы сможете продлить подписку всего от 49 рублей в меню "💎 Получить доступ".`, { parse_mode: 'Markdown' });
 });
 
 bot.hears('💎 Получить доступ', async (ctx) => {
   const paymentMethods = Markup.inlineKeyboard([
-    [Markup.button.callback('💳 Картой РФ (Фрикасса)', 'method_fk')],
+    [Markup.button.callback('💳 СБП / Карты / QIWI (FreeKassa)', 'method_fk')],
+    [Markup.button.callback('💳 Картой РФ (ЮMoney)', 'method_ym')],
     [Markup.button.callback('🪙 Криптовалютой (USDT / TON)', 'method_crypto')]
   ]);
 
@@ -269,12 +341,13 @@ bot.hears('💎 Получить доступ', async (ctx) => {
 
 bot.action('method_fk', async (ctx) => {
   const tariffs = Markup.inlineKeyboard([
+    [Markup.button.callback('🌱 VIP 1 месяц — 49 ₽', 'pay_fk_30_49')],
     [Markup.button.callback('🌟 VIP 3 месяца — 100 ₽', 'pay_fk_90_100')],
     [Markup.button.callback('⚡ VIP 6 месяцев — 300 ₽', 'pay_fk_180_300')],
     [Markup.button.callback('👑 VIP 1 год — 500 ₽', 'pay_fk_365_500')]
   ]);
 
-  ctx.reply('Выберите тарифный план (Оплата через Free-Kassa):', tariffs);
+  ctx.reply('Выберите тарифный план (Оплата через FreeKassa - СБП, карты, QIWI):', tariffs);
   await ctx.answerCbQuery();
 });
 
@@ -284,38 +357,64 @@ bot.action(/pay_fk_(\d+)_(\d+)/, async (ctx) => {
   const telegramId = ctx.from.id;
   const orderId = `${telegramId}_${duration}_${Date.now()}`;
 
-  if (!FK_MERCHANT_ID || !FK_SECRET_1) {
-    ctx.reply('❌ Оплата через Free-Kassa временно не настроена.');
-    return;
-  }
+  const merchantId = process.env.FK_MERCHANT_ID || '73074';
+  const secret1 = process.env.FK_SECRET_1 || 'U&5fTkA{3%bic_9';
 
   try {
     const crypto = require('crypto');
-    const currency = 'RUB';
-    const rawSignString = `${FK_MERCHANT_ID}:${amount}:${FK_SECRET_1}:${currency}:${orderId}`;
-    
-    // Mask secret for secure logging
-    const maskedSecret = FK_SECRET_1.substring(0, 2) + '...' + FK_SECRET_1.slice(-2);
-    const maskedSignString = `${FK_MERCHANT_ID}:${amount}:${maskedSecret}:${currency}:${orderId}`;
-    
-    console.log(`[FreeKassa Link] Creating payment url for ${orderId}. Hashing string pattern: "${maskedSignString}"`);
-    
-    const sign = crypto.createHash('md5')
-      .update(rawSignString)
-      .digest('hex');
-
-    const payUrl = `https://pay.freekassa.net/?m=${FK_MERCHANT_ID}&oa=${amount}&currency=${currency}&o=${orderId}&s=${sign}&us_login=${telegramId}`;
+    // md5 signature formula: merchant_id:amount:secret_word_1:currency:order_id
+    const signatureString = `${merchantId}:${amount}:${secret1}:RUB:${orderId}`;
+    const signature = crypto.createHash('md5').update(signatureString).digest('hex');
+    const payUrl = `https://pay.freekassa.ru/?m=${merchantId}&oa=${amount}&o=${orderId}&s=${signature}&currency=RUB`;
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.url('💳 Перейти к оплате (Free-Kassa)', payUrl)],
+      [Markup.button.url('💳 Перейти к оплате (FreeKassa)', payUrl)],
       [Markup.button.callback('🔄 Я оплатил', 'check_payment_manual')]
     ]);
 
-    ctx.reply(`Счет на оплату через Free-Kassa создан!\n\nСумма: ${amount} ₽\nТариф: ${duration} дней\n\nНажми кнопку ниже для оплаты. Ключ придет автоматически.`, keyboard);
+    ctx.reply(`Счет на оплату через FreeKassa создан!\n\nСумма: ${amount} ₽\nТариф: ${duration} дней\n\nНажми кнопку ниже для оплаты. Ключ придет автоматически.`, keyboard);
     await ctx.answerCbQuery();
   } catch (error) {
-    console.error('Free-Kassa Error:', error);
-    ctx.reply('Ошибка при создании счета Free-Kassa.');
+    console.error('FreeKassa creation Error:', error);
+    ctx.reply('Ошибка при создании счета FreeKassa.');
+  }
+});
+
+bot.action('method_ym', async (ctx) => {
+  const tariffs = Markup.inlineKeyboard([
+    [Markup.button.callback('🌱 VIP 1 месяц — 49 ₽', 'pay_ym_30_49')],
+    [Markup.button.callback('🌟 VIP 3 месяца — 100 ₽', 'pay_ym_90_100')],
+    [Markup.button.callback('⚡ VIP 6 месяцев — 300 ₽', 'pay_ym_180_300')],
+    [Markup.button.callback('👑 VIP 1 год — 500 ₽', 'pay_ym_365_500')]
+  ]);
+
+  ctx.reply('Выберите тарифный план (Оплата через ЮMoney):', tariffs);
+  await ctx.answerCbQuery();
+});
+
+bot.action(/pay_ym_(\d+)_(\d+)/, async (ctx) => {
+  const duration = parseInt(ctx.match[1]);
+  const amount = parseInt(ctx.match[2]);
+  const telegramId = ctx.from.id;
+  const orderId = `${telegramId}_${duration}_${Date.now()}`;
+
+  const wallet = process.env.YOOMONEY_WALLET || '4100118248894113';
+
+  try {
+    console.log(`[YooMoney Link] Creating payment url for ${orderId}. Wallet: ${wallet}`);
+
+    const payUrl = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${wallet}&quickpay-form=shop&targets=Оплата%20VIP%20StreamLume&sum=${amount}&label=${orderId}`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('💳 Перейти к оплате (ЮMoney)', payUrl)],
+      [Markup.button.callback('🔄 Я оплатил', 'check_payment_manual')]
+    ]);
+
+    ctx.reply(`Счет на оплату через ЮMoney создан!\n\nСумма: ${amount} ₽\nТариф: ${duration} дней\n\nНажми кнопку ниже для оплаты. Ключ придет автоматически.`, keyboard);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('YooMoney creation Error:', error);
+    ctx.reply('Ошибка при создании счета ЮMoney.');
   }
 });
 
