@@ -650,3 +650,21 @@ if (BOT_TOKEN) {
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// Инициализация ИИ-партизанского отряда
+startPartisanBot();
+
+// --- Фоновые задачи продвижения (StreamLume) ---
+setTimeout(() => {
+  console.log('[Scheduler] Запуск задач для StreamLume...');
+  runAutoblog('iptv');
+  runYouTubeBot('iptv');
+}, 5 * 60 * 1000);
+
+setInterval(() => {
+  runAutoblog('iptv');
+}, 24 * 60 * 60 * 1000);
+
+setInterval(() => {
+  runYouTubeBot('iptv');
+}, 4 * 60 * 60 * 1000);

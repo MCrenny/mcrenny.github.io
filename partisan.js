@@ -1,19 +1,27 @@
-const { TelegramClient, Api } = require('telegram');
-const { StringSession } = require('telegram/sessions/index.js');
-const { NewMessage } = require('telegram/events/index.js');
-const { ConnectionTCPObfuscated } = require('telegram/network/connection');
-const { GoogleGenAI } = require('@google/genai');
-const dotenv = require('dotenv');
-const { 
+import { TelegramClient, Api } from 'telegram';
+import { StringSession } from 'telegram/sessions/index.js';
+import { NewMessage } from 'telegram/events/index.js';
+import { ConnectionTCPObfuscated } from 'telegram/network/connection/index.js';
+import { GoogleGenAI } from '@google/genai';
+import dotenv from 'dotenv';
+import { 
   isUserContacted, 
   markUserAsContacted, 
   isMessageProcessed, 
   markMessageAsProcessed,
   getDynamicChats,
-  saveDynamicChat
-} = require('./db');
+  saveDynamicChat,
+  getScoutRequests,
+  isScoutMatchProcessed,
+  markScoutMatchProcessed,
+  saveBannedChat,
+  getBannedChats,
+  removeDynamicChat,
+  addTesterEmail,
+  getTesterEmails
+} from './db.js';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const apiId = process.env.TELEGRAM_API_ID ? parseInt(process.env.TELEGRAM_API_ID) : null;
 const apiHash = process.env.TELEGRAM_API_HASH;
@@ -26,25 +34,26 @@ if (geminiKey) {
   ai = new GoogleGenAI({ apiKey: geminiKey });
 }
 
-// Список чатов для мониторинга (по умолчанию популярные сообщества по IPTV и Smart TV)
-const DEFAULT_CHATS = [
-  'iptv_smarttv', 
-  'smarttv_ru', 
-  'tivimate_ru', 
-  'televizo_chat', 
-  'ottplayer_chat', 
-  'android_tv_ru', 
-  'iptv_free_m3u', 
-  'smarttv_channels'
-];
-
+// Список чатов для мониторинга (по умолчанию популярные авто-сообщества региона)
+const DEFAULT_CHATS = ['auto_pmr', 'autoport_pmr', 'carspmr', 'pmr_auto', 'transnistria_cars'];
 const configChats = process.env.PARTISAN_CHATS 
   ? process.env.PARTISAN_CHATS.split(',').map(s => s.trim()) 
   : DEFAULT_CHATS;
 
-const targetChats = [...new Set([...configChats, ...getDynamicChats()])];
+function getFilteredTargetChats() {
+  const banned = new Set(getBannedChats().map(c => c.toLowerCase()));
+  const allChats = [...new Set([...configChats, ...getDynamicChats()])];
+  return allChats.filter(c => !banned.has(c.toLowerCase()));
+}
 
-let botLogs = [];
+export let targetChats = getFilteredTargetChats();
+
+export function refreshTargetChats() {
+  targetChats = getFilteredTargetChats();
+  botStatus.targetChats = targetChats;
+}
+
+export let botLogs = [];
 const originalLog = console.log;
 const originalError = console.error;
 
@@ -67,24 +76,21 @@ console.error = function(...args) {
 };
 
 // Очередь отправки и лимиты
-let sendQueue = [];
+export let sendQueue = [];
 let lastSentTime = 0;
 let messagesSentToday = 0;
 let lastResetDate = new Date().toDateString();
-const MIN_SEND_INTERVAL = 30 * 60 * 1000; // 30 минут между сообщениями (человеческий фактор)
-const MAX_DAILY_MESSAGES = 15; // Максимум 15 ЛС в сутки
+const MIN_SEND_INTERVAL = 10 * 60 * 1000; // 10 минут между сообщениями (человеческий фактор)
+const MAX_DAILY_MESSAGES = 50; // Максимум 50 ЛС в сутки
 
-// Ключевые слова для поиска проблем/запросов по IPTV
-const KEYWORDS = [
-  'плейлист', 'playlist', 'm3u', 'm3u8', 'iptv', 'иптв', 
-  'телевизор', 'smart tv', 'смарт тв', 'tivimate', 'televizo', 
-  'ott navigator', 'ottplayer', 'зависает', 'буферизация', 
-  'тормозит', 'подвисает', 'где смотреть', 'тв каналы', 
-  'каналы hd', 'смотреть каналы', 'подписка тв', 'телевидение', 
-  'эдем тв', 'ilook', 'cbilling'
+// Ключевые слова для поиска проблем (IPTV)
+const IPTV_KEYWORDS = [
+  'какой плеер', 'плеер для тв', 'где посмотреть', 'зависает iptv', 'тормозит тв', 
+  'посоветуйте iptv', 'smart tv', 'смарт тв', 'какое приложение', 'плейлист iptv', 
+  'фильмы онлайн', 'тв бокс', 'tv box', 'приставка', 'iptv player'
 ];
 
-let botStatus = {
+export let botStatus = {
   initialized: false,
   connected: false,
   username: null,
@@ -102,10 +108,51 @@ const chatMap = new Map();
 async function populateChatMap(client) {
   try {
     const dialogs = await client.getDialogs({});
+    chatMap.clear();
+
     for (const dialog of dialogs) {
       const entity = dialog.entity;
       if (entity) {
         const idStr = entity.id.toString();
+
+        // 1. Проверяем, если это канал вещания (только для чтения)
+        if (entity.broadcast) {
+          const chatName = entity.username || idStr;
+          console.log(`[Partisan] Обнаружен broadcast-канал @${chatName}. Выходим...`);
+          try {
+            await client.invoke(
+              new Api.channels.LeaveChannel({
+                channel: entity
+              })
+            );
+            if (entity.username) saveBannedChat(entity.username);
+            saveBannedChat(idStr);
+            refreshTargetChats();
+          } catch (leaveErr) {
+            console.error(`[Partisan] Ошибка выхода из канала @${chatName}:`, leaveErr.message);
+          }
+          continue;
+        }
+
+        // 2. Проверяем, если писать запрещено для всех участников по умолчанию
+        if (entity.defaultBannedRights && entity.defaultBannedRights.sendMessages) {
+          const chatName = entity.username || idStr;
+          console.log(`[Partisan] В группе @${chatName} запрещено отправлять сообщения. Выходим...`);
+          try {
+            await client.invoke(
+              new Api.channels.LeaveChannel({
+                channel: entity
+              })
+            );
+            if (entity.username) saveBannedChat(entity.username);
+            saveBannedChat(idStr);
+            refreshTargetChats();
+          } catch (leaveErr) {
+            console.error(`[Partisan] Ошибка выхода из группы @${chatName}:`, leaveErr.message);
+          }
+          continue;
+        }
+
         if (entity.username) {
           chatMap.set(idStr, entity.username.toLowerCase());
         }
@@ -118,7 +165,7 @@ async function populateChatMap(client) {
   }
 }
 
-async function startPartisanBot(retryCount = 0) {
+export async function startPartisanBot(retryCount = 0) {
   botStatus.startedAt = new Date().toISOString();
   botStatus.initialized = true;
   botStatus.targetChats = targetChats;
@@ -150,7 +197,7 @@ async function startPartisanBot(retryCount = 0) {
     botStatus.username = me.username || me.firstName;
     console.log(`[Partisan] Авторизация успешна! Бот запущен от имени: @${me.username || me.firstName}`);
 
-    // Подписка на новые сообщения
+    // Подписка на новые сообщения (регистрируем сразу, чтобы не пропускать сообщения во время инициализации)
     client.addEventHandler(async (event) => {
       try {
         const message = event.message;
@@ -168,6 +215,17 @@ async function startPartisanBot(retryCount = 0) {
         }
 
         const chatUsername = chatMap.get(chatId) || '';
+        
+        const sender = await message.getSender();
+        const senderIdStr = sender && sender.id ? sender.id.toString() : null;
+
+        // Check if this is a PM from a user we contacted
+        let isPrivateReply = false;
+        if (message.peerId && message.peerId.userId && senderIdStr && senderIdStr !== me.id.toString()) {
+            if (isUserContacted(senderIdStr)) {
+                isPrivateReply = true;
+            }
+        }
 
         // Проверяем, наш ли это чат
         const isTargetChat = targetChats.some(target => 
@@ -175,7 +233,9 @@ async function startPartisanBot(retryCount = 0) {
           target === chatId
         );
 
-        if (!isTargetChat) return;
+        if (!isTargetChat && !isPrivateReply) return;
+
+        // Убрана логика набора тестировщиков
 
         botStatus.totalMessagesReceived++;
         botStatus.lastReceivedMessage = {
@@ -187,13 +247,20 @@ async function startPartisanBot(retryCount = 0) {
 
         const msgText = message.message.toLowerCase();
 
-        // Исключаем откровенную коммерческую рекламу других IPTV сервисов
-        const promoTriggers = ['купить подписку', 'продам плейлист', 'акция', 'скидки', 'официальный реселлер', 'подключаем каналы'];
-        const isPromoMessage = promoTriggers.some(t => msgText.includes(t));
+        // 2. ИИ-ПАРТИЗАН (Помощь по ремонту с рекомендацией приложения)
+        const saleTriggers = [
+          'продам', 'продаю', 'продается', 'продаётся', 'продает', 'продаёт',
+          'цена', 'торг', 'тыс', '$', '€', 'руб', 'объявление', 'автобазар', 'рынок', 
+          'обмен', 'выкуп', 'растаможен', 'растаможена', 'пробег', 'диски', 'состояние',
+          'акпп', 'мкпп', 'бензин', 'дизель', 'инжектор', 'карбюратор'
+        ];
+        const isSaleMessage = saleTriggers.some(t => msgText.includes(t));
 
-        if (!isPromoMessage) {
-          const hasKeyword = KEYWORDS.some(keyword => msgText.includes(keyword));
-          if (hasKeyword) {
+        if (!isSaleMessage) {
+          let detectedDomain = null;
+          if (IPTV_KEYWORDS.some(k => msgText.includes(k))) detectedDomain = 'iptv';
+
+          if (detectedDomain) {
             botStatus.keywordMessagesReceived++;
 
             const sender = await message.getSender();
@@ -203,14 +270,14 @@ async function startPartisanBot(retryCount = 0) {
               // Не пишем самому себе и другим ботам
               if (senderId !== me.id.toString() && !sender.bot) {
                 // Проверяем уникальность
-                if (!(await isMessageProcessed(chatId, message.id)) && !(await isUserContacted(senderId))) {
+                if (!isMessageProcessed(chatId, message.id) && !isUserContacted(senderId)) {
                   // Помечаем сообщение как обработанное
-                  await markMessageAsProcessed(chatId, message.id);
+                  markMessageAsProcessed(chatId, message.id);
 
-                  console.log(`[Partisan] Найдена цель по ключевым словам в @${chatUsername || chatId} от ${sender.username || senderId}: "${message.message.substring(0, 60)}..."`);
+                  console.log(`[Partisan] Найдена цель (${detectedDomain}) в @${chatUsername || chatId} от ${sender.username || senderId}: "${message.message.substring(0, 60)}..."`);
 
                   // Обработка сообщения
-                  await handleTargetMessage(client, sender, message.message, chatUsername || chatId);
+                  handleTargetMessage(client, sender, message.message, chatUsername || chatId, detectedDomain);
                 }
               }
             }
@@ -221,23 +288,30 @@ async function startPartisanBot(retryCount = 0) {
       }
     }, new NewMessage({}));
 
-    // Запускаем фоновые задачи инициализации
+    // Запускаем фоновые задачи инициализации (не блокируют старт)
     setTimeout(async () => {
       await populateChatMap(client);
       await joinTargetChats(client, targetChats);
+      // После вступлений обновляем карту еще раз, чтобы подтянуть новые группы
       await populateChatMap(client);
     }, 1000);
 
-    // Запускаем фоновый поиск новых групп (первый через 30 секунд, затем раз в 24 часа)
+    // Запускаем фоновый поиск новых групп (первый поиск через 30 секунд, затем каждые 24 часа)
     setTimeout(() => {
-      findAndJoinNewChats(client).catch(err => console.error('[Partisan] Ошибка автопоиска:', err));
+      setTimeout(() => findAndJoinNewChats(client, 'iptv').catch(err => console.error('[Partisan] Ошибка автопоиска (iptv):', err)), 60000);
+      setTimeout(() => postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err)), 120000);
     }, 30000);
 
     setInterval(() => {
-      findAndJoinNewChats(client).catch(err => console.error('[Partisan] Ошибка автопоиска:', err));
+      setTimeout(() => findAndJoinNewChats(client, 'iptv').catch(err => console.error('[Partisan] Ошибка автопоиска (iptv):', err)), 60000);
     }, 24 * 60 * 60 * 1000);
+    
+    // Публикация на досках объявлений каждые 12 часов
+    setInterval(() => {
+      postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err));
+    }, 12 * 60 * 60 * 1000);
 
-    // Периодический обработчик очереди отправки сообщений (каждую минуту)
+    // Запускаем периодический обработчик очереди отправки сообщений (каждую минуту)
     setInterval(async () => {
       await processSendQueue();
     }, 60000);
@@ -245,6 +319,12 @@ async function startPartisanBot(retryCount = 0) {
   } catch (err) {
     console.error(`[Partisan] Ошибка при инициализации юзербота (попытка ${retryCount + 1}):`, err);
     botStatus.error = err.message;
+    
+    try {
+      await client.disconnect();
+    } catch (discErr) {
+      // Игнорируем ошибки при закрытии неактивного соединения
+    }
     
     const maxRetries = 10;
     if (retryCount < maxRetries) {
@@ -259,44 +339,93 @@ async function startPartisanBot(retryCount = 0) {
 }
 
 async function joinTargetChats(client, chats) {
+  // Получаем список уже вступивших групп из chatMap
+  const joinedUsernames = new Set(Array.from(chatMap.values()).map(v => v.toLowerCase()));
+  const joinedIds = new Set(Array.from(chatMap.keys()));
+
   for (const chat of chats) {
     if (chat.startsWith('-') || /^\d+$/.test(chat)) {
       continue;
     }
+
+    const lowerChat = chat.toLowerCase();
+    // Если мы уже состоим в этой группе, пропускаем JoinChannel
+    if (joinedUsernames.has(lowerChat) || joinedIds.has(chat)) {
+      console.log(`[Partisan] Уже состоим в группе: @${chat} (пропуск вступления)`);
+      continue;
+    }
+
     try {
-      console.log(`[Partisan] Проверка вступления в группу: @${chat}`);
+      console.log(`[Partisan] Вступление в группу: @${chat}`);
       await client.invoke(
         new Api.channels.JoinChannel({
           channel: chat
         })
       );
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Задержка 15 секунд, чтобы избежать спам-фильтра Telegram
+      await new Promise(resolve => setTimeout(resolve, 15000));
     } catch (err) {
-      if (!err.message.includes('CHANNELS_ADMIN_PUBLIC_LIMIT_EXCEEDED')) {
-        console.log(`[Partisan] Статус группы @${chat}: ${err.message}`);
+      const errMsg = err.message || '';
+      console.log(`[Partisan] Ошибка при вступлении в группу @${chat}: ${errMsg}`);
+      
+      const permanentErrors = [
+        'USER_BANNED_IN_CHANNEL',
+        'CHANNEL_PRIVATE',
+        'INVITE_HASH_EXPIRED',
+        'USERNAME_INVALID',
+        'USERNAME_NOT_OCCUPIED',
+        'CHANNEL_INVALID',
+        'CHAT_INVALID'
+      ];
+      
+      const isPermanent = permanentErrors.some(pe => errMsg.includes(pe));
+      if (isPermanent) {
+        console.log(`[Partisan] Группа @${chat} недоступна перманентно (${errMsg}). Добавляем в черный список.`);
+        saveBannedChat(chat);
+        refreshTargetChats();
+      }
+
+      if (errMsg.includes('wait of') || errMsg.includes('FLOOD_WAIT')) {
+        console.log('[Partisan] Достигнут лимит Telegram на вступление (FloodWait). Прерываем стартовый цикл вступлений.');
+        break;
       }
     }
   }
 }
 
-async function handleTargetMessage(client, sender, userMsg, chatUsername) {
+async function handleTargetMessage(client, sender, userMsg, chatUsername, domain) {
   const senderId = sender.id.toString();
   const username = sender.username ? `@${sender.username}` : `ID ${senderId}`;
 
   try {
-    // Генерируем ответ с помощью Gemini
-    const prompt = `
-      Ты — опытный, вежливый технический специалист и эксперт по настройке Smart TV и IPTV, участник форума.
-      В чате @${chatUsername} пользователь задал вопрос или описал проблему: "${userMsg}".
-      
-      Твоя задача:
-      1. Напиши ему лично очень краткий (2-3 предложения), практический и дружелюбный совет или ответ на его вопрос.
-      2. Ненавязчиво порекомендуй установить полностью бесплатное IPTV-приложение "StreamLume" на Android (телефон, приставка или Smart TV). Расскажи, что приложение имеет премиальный, очень красивый интерфейс (в стиле Dark Mode и Glassmorphism), работает невероятно быстро, не зависает и уже имеет встроенный готовый плейлист с сотнями каналов в высоком качестве (HD/FullHD), а также бесплатный тестовый период.
-      3. ВАЖНО: Не вставляй никаких прямых ссылок (URL-адресов, например, https://...) на скачивание (это приводит к блокировке за спам). Вместо этого напиши текстом: "просто найди телеграм-канал StreamLumeApp и скачай оттуда APK" или "найди бота StreamLumeBot в телеграме, он выдаст бесплатный ключ и ссылку".
-      4. Пиши живым человеческим языком, без официоза и приветствий типа "Я виртуальный ассистент". Напиши просто как человек, который увидел сообщение в группе и решил подсказать решение в ЛС.
-      
-      Ответь строго на русском языке.
-    `;
+    let prompt = '';
+    
+    if (domain === 'iptv') {
+      prompt = `
+        Ты — живой человек, киноман, активный участник чатов про Smart TV и кино.
+        Ты пишешь неформально, как обычный пользователь — коротко, по-русски, без пафоса.
+
+        В чате @${chatUsername} человек написал: "${userMsg}"
+
+        Твоя задача — написать ответ в 3 части (всё вместе — 4-6 предложений, не больше):
+
+        ЧАСТЬ 1 — Живой совет:
+        Дай конкретный совет по его вопросу. Без воды.
+
+        ЧАСТЬ 2 — Упомяни приложение через личный опыт:
+        Скажи, что сам давно пользуешься плеером "StreamLume" и горя не знаешь.
+        Упомяни 1-2 фишки:
+        • Идеально тянет 4K без зависаний
+        • Избранное — собираешь свой пакет каналов из разных источников
+        • Легко настраивается на любом Smart TV или Android-приставке
+        • Можно бесплатно взять триал на 3 дня через их бота
+
+        ЧАСТЬ 3 — Просьба об обратной связи:
+        В конце попроси отписаться: "Отпишись потом, зашло или нет"
+
+        ВАЖНО: Никаких ссылок/URL. Пиши как живой человек. Ответ строго на русском.
+      `;
+    }
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -307,16 +436,87 @@ async function handleTargetMessage(client, sender, userMsg, chatUsername) {
 
     // Добавляем задачу в очередь отправки
     sendQueue.push({
+      type: 'partisan',
       client,
       peerId: sender.id,
       senderId,
       username: sender.username,
       text: replyText
     });
-    console.log(`[Partisan] Задача добавлена в очередь отправки для ${username}. Очередь: ${sendQueue.length}`);
+    console.log(`[Partisan] Задача (партизан) добавлена в очередь отправки для ${username}. Очередь: ${sendQueue.length}`);
 
   } catch (err) {
     console.error(`[Partisan] Не удалось обработать ответ для ${username}:`, err.message);
+  }
+}
+
+async function handleScoutMatch(client, message, query) {
+  try {
+    const sender = await message.getSender();
+    if (!sender || !sender.id) return;
+    const senderId = sender.id.toString();
+
+    // Не пишем самому себе и другим ботам
+    const me = await client.getMe();
+    if (senderId === me.id.toString() || sender.bot) return;
+
+    const username = sender.username ? `@${sender.username}` : `ID ${senderId}`;
+    console.log(`[Partisan] [Scout] Анализ совпадения для ${query.make} ${query.model} от ${username}...`);
+
+    const prompt = `
+      Ты — интеллектуальный помощник автоскаута.
+      Пользователь ищет автомобиль:
+      Марка: ${query.make}
+      Модель: ${query.model}
+      Год: от ${query.yearFrom || 'любого'} до ${query.yearTo || 'любого'}
+      Ключевые слова пользователя: ${query.keywords || 'нет'}
+      
+      Сообщение в авто-чате: "${message.message}"
+      
+      Твоя задача:
+      1. Проверь, действительно ли в этом сообщении продается именно этот автомобиль (а не запчасти, услуги ремонта или вопрос).
+      2. Если год машины указан в объявлении, проверь, подходит ли он под диапазон.
+      3. Если объявление подходит, напиши краткий, вежливый и естественный первый вопрос продавцу от имени потенциального покупателя (1-2 предложения, например: "Здравствуйте! Увидел ваше объявление о продаже ${query.make} ${query.model}. Подскажите, машина ещё продается?").
+      
+      Верни ответ в формате JSON:
+      {
+        "isMatch": true или false,
+        "replyText": "Текст сообщения для отправки продавцу (если matches=true, иначе пустая строка)"
+      }
+      Не пиши никаких пояснений, только валидный JSON.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const result = JSON.parse(response.text.trim());
+    if (result.isMatch && result.replyText) {
+      console.log(`[Partisan] [Scout] ИИ подтвердил продажу авто! Текст ответа: "${result.replyText}"`);
+      
+      sendQueue.push({
+        type: 'scout',
+        client,
+        peerId: sender.id,
+        senderId,
+        username: sender.username,
+        text: result.replyText.trim(),
+        deviceId: query.deviceId,
+        make: query.make,
+        model: query.model,
+        messageId: message.id
+      });
+      console.log(`[Partisan] [Scout] Задача (скаут) добавлена в очередь отправки для ${username}. Очередь: ${sendQueue.length}`);
+    } else {
+      console.log(`[Partisan] [Scout] ИИ отклонил сообщение: не совпадает или не является продажей.`);
+    }
+
+  } catch (err) {
+    console.error(`[Partisan] [Scout] Ошибка при обработке объявления:`, err.message);
   }
 }
 
@@ -343,7 +543,7 @@ async function processSendQueue() {
   if (!task) return;
 
   try {
-    console.log(`[Partisan] Отправка сообщения из очереди пользователю ${task.username || task.senderId}`);
+    console.log(`[Partisan] Отправка сообщения из очереди (${task.type}) пользователю ${task.username || task.senderId}`);
 
     // Имитируем набор текста
     try {
@@ -363,7 +563,11 @@ async function processSendQueue() {
     lastSentTime = Date.now();
     messagesSentToday++;
 
-    await markUserAsContacted(task.senderId, task.username);
+    if (task.type === 'scout') {
+      markScoutMatchProcessed(task.deviceId, task.make, task.model, task.messageId);
+    } else {
+      markUserAsContacted(task.senderId, task.username);
+    }
 
     console.log(`[Partisan] Сообщение успешно отправлено. Дневной лимит: ${messagesSentToday}/${MAX_DAILY_MESSAGES}`);
   } catch (err) {
@@ -371,13 +575,15 @@ async function processSendQueue() {
   }
 }
 
-async function findAndJoinNewChats(client) {
-  console.log('[Partisan] ИИ-разведка: запуск поиска новых IPTV/SmartTV групп...');
-  const searchQueries = [
-    'iptv чат', 'iptv рус', 'smart tv чат', 'android tv чат', 
-    'tivimate рус', 'televizo чат', 'ottplayer рус', 'iptv бесплатно',
-    'плейлисты m3u'
-  ];
+async function findAndJoinNewChats(client, domain) {
+  console.log(`[Partisan] ИИ-разведка: запуск поиска новых групп для: ${domain}...`);
+  let searchQueries = [];
+  if (domain === 'iptv') {
+    searchQueries = [
+      'smart tv чат', 'кино онлайн чат', 'тв приставки', 
+      'android tv box', 'фильмы сериалы чат', 'iptv плейлисты'
+    ];
+  }
   const foundCandidates = new Map();
 
   for (const query of searchQueries) {
@@ -426,10 +632,10 @@ async function findAndJoinNewChats(client) {
       ${JSON.stringify(candidateList, null, 2)}
       
       Твоя задача — отобрать только те группы, которые удовлетворяют критериям:
-      1. Тематика группы: IPTV, Smart TV, Android TV, медиаплееры, плейлисты, просмотр каналов.
-      2. Язык общения: русский. Исключи англоязычные или другие зарубежные чаты.
+      1. Тематика группы: автомобили (продажа, покупка, авторынки, автобазары, ремонт автомобилей, автоклубы, автосообщества).
+      2. География: Россия (РФ), Беларусь, Казахстан, Молдова или Приднестровье (ПМР). Если группа явно относится к другой стране/региону (Украина, Узбекистан, страны Европы и т.д.), исключи её.
       
-      Верни строго JSON-массив строк с юзернеймами подходящих групп (например: ["iptv_chat", "tivimate_group", "smart_tv_ru"]). 
+      Верни строго JSON-массив строк с юзернеймами подходящих групп (например: ["auto_pmr", "avtorynok_russia", "belarus_car_chat"]). 
       Если ни одна группа не подходит, верни пустой массив [].
       Не пиши никаких пояснений и лишнего текста, только валидный JSON-массив.
     `;
@@ -442,15 +648,32 @@ async function findAndJoinNewChats(client) {
     const cleanText = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();
     approvedUsernames = JSON.parse(cleanText);
   } catch (err) {
-    console.error('[Partisan] Ошибка при ИИ-фильтрации групп через Gemini:', err.message);
+    if (err.message && err.message.includes('503')) {
+      console.log('[Partisan] ИИ-фильтрация временно недоступна (Gemini 503: высокая нагрузка). Повторим в следующий раз.');
+    } else {
+      console.error('[Partisan] Ошибка при ИИ-фильтрации групп через Gemini:', err.message);
+    }
     return;
   }
 
   console.log(`[Partisan] Gemini одобрил ${approvedUsernames.length} групп: ${approvedUsernames.join(', ')}`);
 
+  // Лимит: вступление в 5-10 групп за один цикл (сутки), чтобы повысить охват
+  const MAX_JOINS_PER_DAY = 5;
+  if (approvedUsernames.length > MAX_JOINS_PER_DAY) {
+    approvedUsernames = approvedUsernames.slice(0, MAX_JOINS_PER_DAY);
+    console.log(`[Partisan] В целях безопасности оставляем для вступления только ${MAX_JOINS_PER_DAY} группы: ${approvedUsernames.join(', ')}`);
+  }
+
+  const banned = new Set(getBannedChats().map(c => c.toLowerCase()));
+
   for (const username of approvedUsernames) {
     const lowerUsername = username.toLowerCase();
     if (targetChats.includes(lowerUsername)) continue;
+    if (banned.has(lowerUsername)) {
+      console.log(`[Partisan] ИИ-разведка: группа @${username} находится в черном списке (пропуск)`);
+      continue;
+    }
 
     let shouldBreak = false;
     try {
@@ -461,13 +684,64 @@ async function findAndJoinNewChats(client) {
         })
       );
 
-      await saveDynamicChat(lowerUsername);
-      targetChats.push(lowerUsername);
-      botStatus.targetChats = targetChats;
-      console.log(`[Partisan] Успешно вступили и начали отслеживать: @${username}`);
+      // Проверяем, является ли это каналом только для чтения
+      const entity = await client.getEntity(username);
+      let isReadOnly = false;
+      let reason = '';
+
+      if (entity) {
+        if (entity.broadcast) {
+          isReadOnly = true;
+          reason = 'это информационный канал (broadcast)';
+        } else if (entity.defaultBannedRights && entity.defaultBannedRights.sendMessages) {
+          isReadOnly = true;
+          reason = 'запрещена отправка сообщений по умолчанию';
+        }
+      }
+
+      if (isReadOnly) {
+        console.log(`[Partisan] Группа @${username} бесполезна (${reason}). Выходим и добавляем в черный список.`);
+        await client.invoke(
+          new Api.channels.LeaveChannel({
+            channel: entity || username
+          })
+        );
+        saveBannedChat(username);
+        removeDynamicChat(username);
+        refreshTargetChats();
+      } else {
+        saveDynamicChat(lowerUsername);
+        targetChats.push(lowerUsername);
+        botStatus.targetChats = targetChats;
+        console.log(`[Partisan] Успешно вступили и начали отслеживать: @${username}`);
+      }
     } catch (err) {
-      console.error(`[Partisan] Не удалось вступить в группу @${username}:`, err.message);
-      if (err.message.includes('wait of') || err.message.includes('FLOOD_WAIT')) {
+      const errMsg = err.message || '';
+      
+      if (errMsg.includes('INVITE_REQUEST_SENT')) {
+        console.log(`[Partisan] Запрос на вступление в группу @${username} отправлен (ожидает одобрения администратора).`);
+      } else {
+        console.error(`[Partisan] Не удалось вступить в группу @${username}:`, errMsg);
+      }
+      
+      const permanentErrors = [
+        'USER_BANNED_IN_CHANNEL',
+        'CHANNEL_PRIVATE',
+        'INVITE_HASH_EXPIRED',
+        'USERNAME_INVALID',
+        'USERNAME_NOT_OCCUPIED',
+        'CHANNEL_INVALID',
+        'CHAT_INVALID'
+      ];
+      
+      const isPermanent = permanentErrors.some(pe => errMsg.includes(pe));
+      if (isPermanent) {
+        console.log(`[Partisan] Группа @${username} недоступна перманентно. Добавляем в черный список.`);
+        saveBannedChat(username);
+        refreshTargetChats();
+      }
+
+      if (errMsg.includes('wait of') || errMsg.includes('FLOOD_WAIT')) {
         console.log('[Partisan] Достигнут лимит Telegram на вступление (FloodWait). Прерываем вступления в этом цикле.');
         shouldBreak = true;
       }
@@ -480,8 +754,57 @@ async function findAndJoinNewChats(client) {
   }
 }
 
-module.exports = {
-  startPartisanBot,
-  botStatus,
-  botLogs
-};
+export async function postToAdBoards(client) {
+  console.log('[Partisan] Доски объявлений: запуск рассылки...');
+  
+  // Ищем группы барахолок
+  const searchQueries = ['барахолка', 'доска объявлений', 'объявления', 'купи продай'];
+  const foundCandidates = new Map();
+  
+  for (const query of searchQueries) {
+    try {
+      const searchResult = await client.invoke(
+        new Api.contacts.Search({ q: query, limit: 10 })
+      );
+      if (searchResult && searchResult.chats) {
+        for (const chat of searchResult.chats) {
+          if (chat.username && chat.megagroup) {
+            foundCandidates.set(chat.username.toLowerCase(), chat.username);
+          }
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (err) {
+      console.error(`[Partisan] Ошибка поиска досок по запросу "${query}":`, err.message);
+    }
+  }
+
+  const candidateList = Array.from(foundCandidates.values()).slice(0, 3); // Берем 3 группы за раз
+  if (candidateList.length === 0) return;
+
+  // Выбираем, что рекламировать
+  const domain = 'iptv';
+  
+  let adText = '';
+  if (domain === 'iptv') {
+    adText = `📺 Для тех, кто любит качественное кино!\nРекомендую отличный плеер "StreamLume" для Smart TV и Android приставок.\n\n🔥 Идеально тянет фильмы в 4K.\n🔥 Крутой интерфейс, никаких зависаний.\n🔥 Собираете свои каналы в удобное Избранное.\n\nКто искал хороший IPTV-плеер — обязательно зацените! Бесплатный триал на 3 дня можно взять через их Telegram-бота: @StreameLumeBot`;
+  }
+
+  for (const username of candidateList) {
+    try {
+      console.log(`[Partisan] Доски: вступление в @${username}...`);
+      await client.invoke(new Api.channels.JoinChannel({ channel: username }));
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      console.log(`[Partisan] Доски: отправка объявления в @${username}...`);
+      await client.sendMessage(username, { message: adText });
+      
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      await client.invoke(new Api.channels.LeaveChannel({ channel: username }));
+      console.log(`[Partisan] Доски: успешно опубликовано и осуществлен выход из @${username}.`);
+    } catch (err) {
+      console.error(`[Partisan] Доски: не удалось запостить в @${username}:`, err.message);
+    }
+    await new Promise(resolve => setTimeout(resolve, 15000));
+  }
+}
