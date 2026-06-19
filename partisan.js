@@ -289,12 +289,14 @@ export async function startPartisanBot(retryCount = 0) {
     // Запускаем фоновые задачи инициализации (не блокируют старт)
     setTimeout(async () => {
       await populateChatMap(client);
-      await joinTargetChats(client, targetChats);
+      // Временно отключаем агрессивные вступления при старте
+      // await joinTargetChats(client, targetChats);
       // После вступлений обновляем карту еще раз, чтобы подтянуть новые группы
-      await populateChatMap(client);
+      // await populateChatMap(client);
     }, 1000);
 
-    // Запускаем фоновый поиск новых групп (первый поиск через 30 секунд, затем каждые 24 часа)
+    /*
+    // Отключаем фоновый поиск новых групп и спам по доскам, чтобы не получить бан
     setTimeout(() => {
       setTimeout(() => findAndJoinNewChats(client, 'iptv').catch(err => console.error('[Partisan] Ошибка автопоиска (iptv):', err)), 60000);
       setTimeout(() => postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err)), 120000);
@@ -308,6 +310,7 @@ export async function startPartisanBot(retryCount = 0) {
     setInterval(() => {
       postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err));
     }, 12 * 60 * 60 * 1000);
+    */
 
     // Запускаем периодический обработчик очереди отправки сообщений (каждую минуту)
     setInterval(async () => {
