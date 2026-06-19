@@ -295,8 +295,7 @@ export async function startPartisanBot(retryCount = 0) {
       // await populateChatMap(client);
     }, 1000);
 
-    /*
-    // Отключаем фоновый поиск новых групп и спам по доскам, чтобы не получить бан
+    // Запускаем фоновый поиск новых групп (первый поиск через 30 секунд, затем каждые 24 часа)
     setTimeout(() => {
       setTimeout(() => findAndJoinNewChats(client, 'iptv').catch(err => console.error('[Partisan] Ошибка автопоиска (iptv):', err)), 60000);
       setTimeout(() => postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err)), 120000);
@@ -310,7 +309,6 @@ export async function startPartisanBot(retryCount = 0) {
     setInterval(() => {
       postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err));
     }, 12 * 60 * 60 * 1000);
-    */
 
     // Запускаем периодический обработчик очереди отправки сообщений (каждую минуту)
     setInterval(async () => {
@@ -598,10 +596,11 @@ async function findAndJoinNewChats(client, domain) {
       );
 
       if (searchResult && searchResult.chats) {
+        const banned = new Set(getBannedChats().map(c => c.toLowerCase()));
         for (const chat of searchResult.chats) {
           if (chat.username && chat.megagroup) {
             const username = chat.username.toLowerCase();
-            if (targetChats.includes(username)) continue;
+            if (targetChats.includes(username) || banned.has(username)) continue;
 
             foundCandidates.set(username, {
               username: chat.username,
@@ -648,6 +647,14 @@ async function findAndJoinNewChats(client, domain) {
 
     const cleanText = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();
     approvedUsernames = JSON.parse(cleanText);
+    
+    // Добавляем отвергнутые ИИ группы в черный список, чтобы не проверять их повторно
+    const approvedSet = new Set(approvedUsernames.map(u => u.toLowerCase()));
+    for (const cand of candidateList) {
+      if (!approvedSet.has(cand.username.toLowerCase())) {
+        saveBannedChat(cand.username);
+      }
+    }
   } catch (err) {
     if (err.message && err.message.includes('503')) {
       console.log('[Partisan] ИИ-фильтрация временно недоступна (Gemini 503: высокая нагрузка). Повторим в следующий раз.');
