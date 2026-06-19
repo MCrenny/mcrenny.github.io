@@ -7,6 +7,8 @@ const { CryptoPay } = require('@foile/crypto-pay-api');
 const { db, generateKey, verifyKey, getKeyByTelegramId, hasUsedTrial, getAllTelegramIds, isOrderProcessed, markOrderProcessed } = require('./db');
 const { rebuildPlaylist, PLAYLIST_CACHE_FILE } = require('./playlist_manager');
 const { startPartisanBot, botStatus, botLogs } = require('./partisan');
+const { runAutoblog } = require('./autoblog');
+const { runYouTubeBot } = require('./youtube_bot');
 
 const app = express();
 app.use(cors());
@@ -651,8 +653,7 @@ if (BOT_TOKEN) {
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-// Инициализация ИИ-партизанского отряда (ВРЕМЕННО ОТКЛЮЧЕНО ДО ПОЯВЛЕНИЯ ВТОРОЙ СИМКИ)
-// startPartisanBot();
+
 
 // --- Фоновые задачи продвижения (StreamLume) ---
 setTimeout(() => {
