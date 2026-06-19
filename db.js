@@ -65,6 +65,16 @@ db.exec(`
     username TEXT PRIMARY KEY,
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS banned_chats (
+    username TEXT PRIMARY KEY,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS tester_emails (
+    email TEXT PRIMARY KEY,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration: add columns if they don't exist
@@ -190,6 +200,36 @@ const saveDynamicChat = (username) => {
   return Promise.resolve();
 };
 
+const getBannedChats = () => {
+  const stmt = db.prepare('SELECT username FROM banned_chats');
+  const rows = stmt.all();
+  return rows.map(r => r.username);
+};
+
+const saveBannedChat = (username) => {
+  const stmt = db.prepare('INSERT OR IGNORE INTO banned_chats (username) VALUES (?)');
+  stmt.run(username.toLowerCase());
+  return Promise.resolve();
+};
+
+const removeDynamicChat = (username) => {
+  const stmt = db.prepare('DELETE FROM dynamic_chats WHERE username = ?');
+  stmt.run(username.toLowerCase());
+  return Promise.resolve();
+};
+
+const getTesterEmails = () => {
+  const stmt = db.prepare('SELECT email FROM tester_emails');
+  const rows = stmt.all();
+  return rows.map(r => r.email);
+};
+
+const addTesterEmail = (email) => {
+  const stmt = db.prepare('INSERT OR IGNORE INTO tester_emails (email) VALUES (?)');
+  stmt.run(email.toLowerCase());
+  return Promise.resolve();
+};
+
 module.exports = {
   db,
   generateKey,
@@ -204,5 +244,10 @@ module.exports = {
   isMessageProcessed,
   markMessageAsProcessed,
   getDynamicChats,
-  saveDynamicChat
+  saveDynamicChat,
+  getBannedChats,
+  saveBannedChat,
+  removeDynamicChat,
+  getTesterEmails,
+  addTesterEmail
 };
