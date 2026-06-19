@@ -651,8 +651,8 @@ if (BOT_TOKEN) {
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-// Инициализация ИИ-партизанского отряда
-startPartisanBot();
+// Инициализация ИИ-партизанского отряда (ВРЕМЕННО ОТКЛЮЧЕНО ДО ПОЯВЛЕНИЯ ВТОРОЙ СИМКИ)
+// startPartisanBot();
 
 // --- Фоновые задачи продвижения (StreamLume) ---
 setTimeout(() => {
