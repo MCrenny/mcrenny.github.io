@@ -34,8 +34,8 @@ if (geminiKey) {
   ai = new GoogleGenAI({ apiKey: geminiKey });
 }
 
-// Список чатов для мониторинга (по умолчанию популярные авто-сообщества региона)
-const DEFAULT_CHATS = ['auto_pmr', 'autoport_pmr', 'carspmr', 'pmr_auto', 'transnistria_cars'];
+// Список чатов для мониторинга (по умолчанию популярные чаты про ТВ, кино и Android приставки)
+const DEFAULT_CHATS = ['smarttv_ru', 'androidtvboxru', 'iptv_ru', 'kinoman_chat', 'tvbox_ru'];
 const configChats = process.env.PARTISAN_CHATS 
   ? process.env.PARTISAN_CHATS.split(',').map(s => s.trim()) 
   : DEFAULT_CHATS;
@@ -247,16 +247,14 @@ export async function startPartisanBot(retryCount = 0) {
 
         const msgText = message.message.toLowerCase();
 
-        // 2. ИИ-ПАРТИЗАН (Помощь по ремонту с рекомендацией приложения)
-        const saleTriggers = [
-          'продам', 'продаю', 'продается', 'продаётся', 'продает', 'продаёт',
-          'цена', 'торг', 'тыс', '$', '€', 'руб', 'объявление', 'автобазар', 'рынок', 
-          'обмен', 'выкуп', 'растаможен', 'растаможена', 'пробег', 'диски', 'состояние',
-          'акпп', 'мкпп', 'бензин', 'дизель', 'инжектор', 'карбюратор'
+        // Исключаем откровенный спам и рекламу
+        const spamTriggers = [
+          'продам', 'продаю', 'заработок', 'крипта', 'инвестиции',
+          'ставки', 'казино', 'выигрыш', 'ссылка в профиле'
         ];
-        const isSaleMessage = saleTriggers.some(t => msgText.includes(t));
+        const isSpamMessage = spamTriggers.some(t => msgText.includes(t));
 
-        if (!isSaleMessage) {
+        if (!isSpamMessage) {
           let detectedDomain = null;
           if (IPTV_KEYWORDS.some(k => msgText.includes(k))) detectedDomain = 'iptv';
 
@@ -632,10 +630,10 @@ async function findAndJoinNewChats(client, domain) {
       ${JSON.stringify(candidateList, null, 2)}
       
       Твоя задача — отобрать только те группы, которые удовлетворяют критериям:
-      1. Тематика группы: автомобили (продажа, покупка, авторынки, автобазары, ремонт автомобилей, автоклубы, автосообщества).
-      2. География: Россия (РФ), Беларусь, Казахстан, Молдова или Приднестровье (ПМР). Если группа явно относится к другой стране/региону (Украина, Узбекистан, страны Европы и т.д.), исключи её.
+      1. Тематика группы: Smart TV, Android приставки (TV Box), IPTV, кино, сериалы, обсуждение телевизоров.
+      2. География: Русскоязычные чаты (Россия, СНГ). Если группа явно иностранная или не по теме (например, автомобили, политика), исключи её.
       
-      Верни строго JSON-массив строк с юзернеймами подходящих групп (например: ["auto_pmr", "avtorynok_russia", "belarus_car_chat"]). 
+      Верни строго JSON-массив строк с юзернеймами подходящих групп (например: ["smarttv_ru", "tvbox_chat", "kino_zal"]). 
       Если ни одна группа не подходит, верни пустой массив [].
       Не пиши никаких пояснений и лишнего текста, только валидный JSON-массив.
     `;
