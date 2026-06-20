@@ -38,7 +38,7 @@ export async function runYouTubeBot(appType) {
 
   if (appType === 'iptv') {
     searchQuery = 'бесплатные iptv плейлисты настройка SmartTV фильмы';
-    botContext = `Фишки приложения "StreamLume" (премиальный IPTV-плеер, Яндекс Диск: https://disk.yandex.ru/d/IXCgzWsHyWbdpg):
+    botContext = `Фишки приложения "StreamLume" (премиальный IPTV-плеер, Яндекс Диск: https://disk.yandex.ru/d/PLgFGtCwF8yCjg):
     • Избранное — собираешь свой пакет из 5000+ каналов из 8 разных источников
     • Не нужно париться с настройкой — всё работает сразу
     • Поддержка своих M3U-плейлистов

@@ -57,8 +57,10 @@ export async function runAutoblog(appType) {
       Стиль: Авторский, искренний, без лишней воды, с форматированием (эмодзи и HTML теги <b> и <i>). Категорически запрещено использовать Markdown (звездочки **).
       
       В конце поста ОБЯЗАТЕЛЬНО:
-      1. Добавь призыв скачать "StreamLume" (доступен в Google Play, RuStore, Яндекс Диск: https://disk.yandex.ru/d/IXCgzWsHyWbdpg или Google Drive: https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=drive_link).
-      2. Оставь ссылку на наш Telegram: t.me/streamlume_movies.
+      1. Добавь призыв скачать "StreamLume" (доступен в Google Play, RuStore, Яндекс Диск: https://disk.yandex.ru/d/PLgFGtCwF8yCjg или Google Drive: https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=drive_link).
+      2. Оставь ссылку на наш Telegram: @streamlume_movies. Ни в коем случае не подставляй ссылки на dzen.ru!
+
+      ОЧЕНЬ ВАЖНО: Весь текст должен быть строго до 800 символов, чтобы поместиться в подпись к фото в Telegram! Пиши коротко и ёмко.
     `;
   } else {
     return;

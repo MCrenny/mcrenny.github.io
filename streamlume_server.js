@@ -15,6 +15,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Краш сервера при фатальных ошибках (например, отвал сессии Telegram) для авто-рестарта в Amvera
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! Shutting down...', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION! Shutting down...', reason);
+  process.exit(1);
+});
+
 const PORT = process.env.PORT || 80;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN;
