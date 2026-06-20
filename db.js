@@ -127,9 +127,7 @@ const verifyKey = (key) => {
   // Safe entry bypass for moderators or testing
   if (
     cleanKey === 'VIP-VR406Z-3589' || 
-    cleanKey.startsWith('TEST-') || 
-    cleanKey.startsWith('VIP-TEST-') ||
-    cleanKey === 'VIP-TEST'
+    cleanKey.startsWith('TEST-')
   ) {
     console.log(`[DB] Special bypass entry granted for key: ${key}`);
     return Promise.resolve(true);
