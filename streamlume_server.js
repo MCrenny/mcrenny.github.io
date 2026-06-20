@@ -182,6 +182,11 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
     return res.status(400).send('Bad Request');
   }
 
+  if (!FK_SECRET_2) {
+    console.error('[FreeKassa Webhook] Критическая ошибка: FK_SECRET_2 не задан в .env! Платеж отклонен в целях безопасности.');
+    return res.status(500).send('Webhook unconfigured');
+  }
+
   const crypto = require('crypto');
   const checkSign = crypto.createHash('md5')
     .update(`${merchantId}:${amount}:${FK_SECRET_2}:${merchantOrderId}`)
@@ -239,6 +244,11 @@ const handleYooMoneyWebhook = async (req, res) => {
   const crypto = require('crypto');
   const secret = process.env.YOOMONEY_NOTIFICATION_SECRET || '';
   
+  if (!secret) {
+    console.error('[YooMoney Webhook] Критическая ошибка: YOOMONEY_NOTIFICATION_SECRET не задан в .env! Платеж отклонен в целях безопасности.');
+    return res.status(500).send('Webhook unconfigured');
+  }
+
   // Формула подписи: notification_type&operation_id&amount&currency&datetime&sender&codepro&notification_secret&label
   const signatureString = `${notification_type}&${operation_id}&${amount}&${currency}&${datetime}&${sender}&${codepro}&${secret}&${label}`;
   const checkSign = crypto.createHash('sha1').update(signatureString).digest('hex');
