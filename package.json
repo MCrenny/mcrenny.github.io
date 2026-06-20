@@ -20,6 +20,8 @@
     "express": "^5.2.1",
     "fast-xml-parser": "^5.8.0",
     "geoip-lite": "^1.4.10",
+    "google-auth-library": "^10.7.0",
+    "googleapis": "^173.0.0",
     "input": "^1.0.1",
     "telegraf": "^4.16.3",
     "telegram": "^2.26.22"

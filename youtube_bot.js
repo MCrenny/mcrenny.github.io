@@ -1,6 +1,6 @@
-import { google } from 'googleapis';
-import { GoogleGenAI } from '@google/genai';
-import dotenv from 'dotenv';
+const { google } = require('googleapis');
+const { GoogleGenAI } = require('@google/genai');
+const dotenv = require('dotenv');
 
 dotenv.config({ override: true });
 
@@ -25,7 +25,7 @@ const youtube = google.youtube({
   auth: oauth2Client
 });
 
-export async function runYouTubeBot(appType) {
+async function runYouTubeBot(appType) {
   console.log(`[YouTubeBot] Запуск комментирования для: ${appType}`);
 
   if (!process.env.YOUTUBE_REFRESH_TOKEN) {
@@ -187,3 +187,6 @@ export async function runYouTubeBot(appType) {
     }
   }
 }
+
+module.exports = { runYouTubeBot };
+

@@ -249,3 +249,8 @@ module.exports = {
   getTesterEmails,
   addTesterEmail
 };
+
+module.exports.getScoutRequests = () => [];
+module.exports.isScoutMatchProcessed = () => false;
+module.exports.markScoutMatchProcessed = () => {};
+
