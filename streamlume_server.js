@@ -101,6 +101,11 @@ if (CRYPTO_PAY_TOKEN) {
 }
 
 // --- Express API ---
+app.post('/api/tv-log', (req, res) => {
+  console.log('[TV Client]', req.body);
+  res.sendStatus(200);
+});
+
 app.get('/api/partisan/status', (req, res) => {
   res.json({
     status: botStatus,

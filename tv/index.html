@@ -25,6 +25,22 @@
     </style>
   <link rel="icon" href="/favicon.ico" />
   <script>
+    function sendLog(data) {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/tv-log", true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send(JSON.stringify(data));
+      } catch(e) {}
+    }
+    window.onerror = function(message, source, lineno, colno, error) {
+      var errStr = error ? error.stack : message;
+      sendLog({ type: 'error', message: errStr, source: source, lineno: lineno });
+    };
+    window.onunhandledrejection = function(event) {
+      sendLog({ type: 'unhandledrejection', reason: event.reason ? event.reason.toString() : 'unknown' });
+    };
+    
     if (window.location.pathname.startsWith('/tv')) {
       window.history.replaceState(null, '', '/?msx=1');
     }
