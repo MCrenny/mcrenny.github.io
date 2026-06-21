@@ -6,32 +6,28 @@ dotenv.config({ override: true });
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Инициализация OAuth2 клиента
-const oauth2Client = new google.auth.OAuth2(
-  process.env.YOUTUBE_CLIENT_ID,
-  process.env.YOUTUBE_CLIENT_SECRET,
-  'http://localhost:3000/oauth2callback' // редирект для локального скрипта
-);
-
-// Если есть refresh token, задаем его
-if (process.env.YOUTUBE_REFRESH_TOKEN) {
-  oauth2Client.setCredentials({
-    refresh_token: process.env.YOUTUBE_REFRESH_TOKEN
-  });
-}
-
-const youtube = google.youtube({
-  version: 'v3',
-  auth: oauth2Client
-});
+// Инициализация OAuth2 клиента будет внутри runYouTubeBot,
+// чтобы подхватывать свежие переменные окружения и очищать их от пробелов.
 
 async function runYouTubeBot(appType) {
   console.log(`[YouTubeBot] Запуск комментирования для: ${appType}`);
 
-  if (!process.env.YOUTUBE_REFRESH_TOKEN) {
-    console.log('[YouTubeBot] Отмена: YOUTUBE_REFRESH_TOKEN не настроен. Пройдите авторизацию.');
+  const clientId = (process.env.YOUTUBE_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.YOUTUBE_CLIENT_SECRET || '').trim();
+  const refreshToken = (process.env.YOUTUBE_REFRESH_TOKEN || '').trim();
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.log('[YouTubeBot] Отмена: Не настроены учетные данные YouTube API (CLIENT_ID, CLIENT_SECRET или REFRESH_TOKEN). Проверьте переменные среды в Amvera.');
     return;
   }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:3000/oauth2callback');
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+  const youtube = google.youtube({
+    version: 'v3',
+    auth: oauth2Client
+  });
 
   let searchQuery = '';
   let botContext = '';
@@ -181,6 +177,10 @@ async function runYouTubeBot(appType) {
       console.log(`[YouTubeBot] Временная ошибка сети при обновлении токена Google API. Запрос отложен.`);
     } else if (error.message && error.message.includes('503')) {
       console.log('[YouTubeBot] ИИ-модель временно недоступна (Gemini 503). Запрос отложен.');
+    } else if (error.message && error.message.includes('invalid_client')) {
+      console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_client): Проверьте YOUTUBE_CLIENT_ID и YOUTUBE_CLIENT_SECRET в панели Amvera. Они должны точно совпадать с теми, для которых был выпущен REFRESH_TOKEN, и не содержать лишних пробелов.');
+    } else if (error.message && error.message.includes('invalid_grant')) {
+      console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_grant): Ваш REFRESH_TOKEN устарел или был отозван. Нужно выпустить новый токен.');
     } else {
       console.error(`[YouTubeBot] ❌ Ошибка:`, error.message);
     }
