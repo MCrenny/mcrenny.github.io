@@ -11,6 +11,8 @@ import {
   markMessageAsProcessed,
   getDynamicChats,
   saveDynamicChat,
+  getDynamicHunters,
+  saveDynamicHunter,
   getScoutRequests,
   isScoutMatchProcessed,
   markScoutMatchProcessed,
@@ -47,8 +49,15 @@ const configHunterChannels = process.env.HUNTER_CHANNELS
 
 function getFilteredTargetChats() {
   const banned = new Set(getBannedChats().map(c => c.toLowerCase()));
-  const allChats = [...new Set([...configChats, ...configHunterChannels, ...getDynamicChats()])];
+  const allChats = [...new Set([...configChats, ...configHunterChannels, ...getDynamicChats(), ...getDynamicHunters()])];
   return allChats.filter(c => !banned.has(c.toLowerCase()));
+}
+
+function isHunterChannel(chatUsername) {
+  if (!chatUsername) return false;
+  const username = chatUsername.toLowerCase();
+  return configHunterChannels.some(h => h.toLowerCase() === username) || 
+         getDynamicHunters().some(h => h.toLowerCase() === username);
 }
 
 export let targetChats = getFilteredTargetChats();
@@ -123,7 +132,7 @@ async function populateChatMap(client) {
         // 1. Проверяем, если это канал вещания (только для чтения)
         if (entity.broadcast) {
           const chatName = entity.username || idStr;
-          const isHunter = entity.username && configHunterChannels.some(h => h.toLowerCase() === entity.username.toLowerCase());
+          const isHunter = isHunterChannel(entity.username);
           
           if (isHunter) {
              try {
@@ -259,7 +268,7 @@ export async function startPartisanBot(retryCount = 0) {
 
         if (!isTargetChat && !isPrivateReply) return;
 
-        const isHunter = chatUsername && configHunterChannels.some(h => h.toLowerCase() === chatUsername.toLowerCase());
+        const isHunter = isHunterChannel(chatUsername);
         if (isHunter && message.post) {
             console.log(`[Partisan] Охота: Новый пост в канале @${chatUsername}! Готовим комментарий...`);
             setTimeout(() => handleHunterPost(client, message, chatUsername), 120000); // Ждем 2 минуты
@@ -329,11 +338,13 @@ export async function startPartisanBot(retryCount = 0) {
     // Запускаем фоновый поиск новых групп (первый поиск через 30 секунд, затем каждые 24 часа)
     setTimeout(() => {
       setTimeout(() => findAndJoinNewChats(client, 'iptv').catch(err => console.error('[Partisan] Ошибка автопоиска (iptv):', err)), 60000);
-      setTimeout(() => postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err)), 120000);
+      setTimeout(() => findAndJoinNewHunters(client).catch(err => console.error('[Partisan] Ошибка автопоиска Охотников:', err)), 120000);
+      setTimeout(() => postToAdBoards(client).catch(err => console.error('[Partisan] Ошибка автодосок:', err)), 180000);
     }, 30000);
 
     setInterval(() => {
       setTimeout(() => findAndJoinNewChats(client, 'iptv').catch(err => console.error('[Partisan] Ошибка автопоиска (iptv):', err)), 60000);
+      setTimeout(() => findAndJoinNewHunters(client).catch(err => console.error('[Partisan] Ошибка автопоиска Охотников:', err)), 120000);
     }, 24 * 60 * 60 * 1000);
     
     // Публикация на досках объявлений каждые 12 часов
@@ -838,6 +849,131 @@ async function findAndJoinNewChats(client, domain) {
 
     // Ждем 15 секунд перед следующей попыткой
     await new Promise(resolve => setTimeout(resolve, 15000));
+  }
+}
+
+async function findAndJoinNewHunters(client) {
+  console.log(`[Partisan] Охота: запуск поиска новых каналов-охотников...`);
+  const searchQueries = [
+    'iptv', 'smart tv', 'android tv', 'кино онлайн', 'фильмы сериалы', 'технологии'
+  ];
+  
+  const foundCandidates = new Map();
+
+  for (const query of searchQueries) {
+    try {
+      console.log(`[Partisan] Охота: поиск по запросу "${query}"...`);
+      const searchResult = await client.invoke(
+        new Api.contacts.Search({
+          q: query,
+          limit: 30
+        })
+      );
+
+      if (searchResult && searchResult.chats) {
+        const banned = new Set(getBannedChats().map(c => c.toLowerCase()));
+        for (const chat of searchResult.chats) {
+          if (chat.username && chat.broadcast) {
+            const username = chat.username.toLowerCase();
+            if (targetChats.includes(username) || banned.has(username)) continue;
+
+            foundCandidates.set(username, {
+              username: chat.username,
+              title: chat.title || '',
+              about: chat.about || ''
+            });
+          }
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    } catch (err) {
+      console.error(`[Partisan] Ошибка при поиске каналов по запросу "${query}":`, err.message);
+    }
+  }
+
+  if (foundCandidates.size === 0) {
+    console.log('[Partisan] Охота: новых публичных каналов не найдено.');
+    return;
+  }
+
+  const candidateList = Array.from(foundCandidates.values());
+  console.log(`[Partisan] Охота нашла ${candidateList.length} потенциальных каналов. Передаем на анализ Gemini...`);
+
+  let approvedUsernames = [];
+  try {
+    const prompt = `
+      Ты — интеллектуальный фильтр для Telegram-бота.
+      Перед тобой список найденных Telegram каналов:
+      ${JSON.stringify(candidateList, null, 2)}
+      
+      Твоя задача — отобрать только те каналы, которые удовлетворяют критериям:
+      1. Тематика: Smart TV, Android приставки (TV Box), IPTV, кино, сериалы, обсуждение телевизоров и технологий.
+      2. Исключи: новости политики, барахолки, спам-каналы, нерелевантные темы.
+      
+      Верни строго JSON-массив строк с юзернеймами подходящих каналов (например: ["smarttv_ru", "kino_zal"]). 
+      Если ни один канал не подходит, верни пустой массив [].
+      Не пиши никаких пояснений и лишнего текста, только валидный JSON-массив.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-flash-lite-latest',
+      contents: prompt,
+    });
+
+    const cleanText = response.text.trim().replace(/```json/g, '').replace(/```/g, '').trim();
+    approvedUsernames = JSON.parse(cleanText);
+    
+    // Отвергнутые каналы добавляем в черный список
+    const approvedSet = new Set(approvedUsernames.map(u => u.toLowerCase()));
+    for (const cand of candidateList) {
+      if (!approvedSet.has(cand.username.toLowerCase())) {
+        saveBannedChat(cand.username);
+      }
+    }
+  } catch (err) {
+    if (err.message && err.message.includes('503')) {
+      console.log('[Partisan] ИИ-фильтрация временно недоступна (Gemini 503). Повторим позже.');
+    } else {
+      console.error('[Partisan] Ошибка при ИИ-фильтрации каналов:', err.message);
+    }
+    return;
+  }
+
+  console.log(`[Partisan] Gemini одобрил ${approvedUsernames.length} каналов для охоты: ${approvedUsernames.join(', ')}`);
+
+  const MAX_JOINS_PER_DAY = 5;
+  if (approvedUsernames.length > MAX_JOINS_PER_DAY) {
+    approvedUsernames = approvedUsernames.slice(0, MAX_JOINS_PER_DAY);
+  }
+
+  for (const chat of approvedUsernames) {
+    try {
+      console.log(`[Partisan] Охота: Вступление в канал @${chat}...`);
+      await client.invoke(
+        new Api.channels.JoinChannel({
+          channel: chat
+        })
+      );
+      
+      // Сразу проверяем комментарии
+      const full = await client.invoke(new Api.channels.GetFullChannel({ channel: chat }));
+      if (!full.fullChat.linkedChatId) {
+          console.log(`[Partisan] Охота: В канале @${chat} отключены комментарии. Выходим...`);
+          await client.invoke(new Api.channels.LeaveChannel({ channel: chat }));
+          saveBannedChat(chat);
+      } else {
+          console.log(`[Partisan] Охота: Канал @${chat} добавлен в базу (комментарии включены).`);
+          saveDynamicHunter(chat);
+      }
+      refreshTargetChats();
+      await new Promise(resolve => setTimeout(resolve, 15000));
+    } catch (err) {
+      console.error(`[Partisan] Ошибка вступления/проверки канала @${chat}:`, err.message);
+      if (err.message.includes('wait of') || err.message.includes('FLOOD_WAIT')) {
+        console.log('[Partisan] Достигнут лимит (FloodWait). Прерываем цикл.');
+        break;
+      }
+    }
   }
 }
 

@@ -55,6 +55,63 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS processed_messages (
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const fs = require('fs');
+
+let dbPath = process.env.DB_PATH;
+if (!dbPath) {
+  if (fs.existsSync('/data')) {
+    dbPath = '/data/database.sqlite';
+    // Migration: Copy database from current directory if it exists and /data doesn't have it
+    const localDbPath = path.resolve(process.cwd(), 'database.sqlite');
+    if (!fs.existsSync(dbPath) && fs.existsSync(localDbPath)) {
+      try {
+        fs.copyFileSync(localDbPath, dbPath);
+        console.log('[DB Migration] Copied database from local workspace to persistent volume.');
+      } catch (err) {
+        console.error('[DB Migration] Failed to copy database:', err.message);
+      }
+    }
+  } else {
+    dbPath = path.resolve(process.cwd(), 'database.sqlite');
+  }
+}
+
+console.log('[DB] Database path:', dbPath);
+const db = new Database(dbPath);
+
+// Initialize DB
+db.exec(`
+  CREATE TABLE IF NOT EXISTS keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    telegram_id TEXT,
+    status TEXT DEFAULT 'active',
+    expires_at DATETIME,
+    is_trial INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS processed_orders (
+    order_id TEXT PRIMARY KEY,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS contacted_users (
+    telegram_user_id TEXT PRIMARY KEY,
+    username TEXT,
+    contacted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS processed_messages (
     chat_id TEXT,
     message_id INTEGER,
     processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -62,6 +119,11 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS dynamic_chats (
+    username TEXT PRIMARY KEY,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS dynamic_hunters (
     username TEXT PRIMARY KEY,
     added_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -198,6 +260,18 @@ const saveDynamicChat = (username) => {
   return Promise.resolve();
 };
 
+const getDynamicHunters = () => {
+  const stmt = db.prepare('SELECT username FROM dynamic_hunters');
+  const rows = stmt.all();
+  return rows.map(r => r.username);
+};
+
+const saveDynamicHunter = (username) => {
+  const stmt = db.prepare('INSERT OR IGNORE INTO dynamic_hunters (username) VALUES (?)');
+  stmt.run(username.toLowerCase());
+  return Promise.resolve();
+};
+
 const getBannedChats = () => {
   const stmt = db.prepare('SELECT username FROM banned_chats');
   const rows = stmt.all();
@@ -243,6 +317,8 @@ module.exports = {
   markMessageAsProcessed,
   getDynamicChats,
   saveDynamicChat,
+  getDynamicHunters,
+  saveDynamicHunter,
   getBannedChats,
   saveBannedChat,
   removeDynamicChat,
