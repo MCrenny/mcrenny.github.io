@@ -855,7 +855,8 @@ async function findAndJoinNewChats(client, domain) {
 async function findAndJoinNewHunters(client) {
   console.log(`[Partisan] Охота: запуск поиска новых каналов-охотников...`);
   const searchQueries = [
-    'iptv', 'smart tv', 'android tv', 'кино онлайн', 'фильмы сериалы', 'технологии'
+    'iptv', 'smart tv', 'android tv', 'кино онлайн', 'фильмы сериалы', 'технологии', 
+    'samsung smart tv', 'lg smart tv'
   ];
   
   const foundCandidates = new Map();
