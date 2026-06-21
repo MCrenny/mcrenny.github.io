@@ -23,7 +23,13 @@
         flex: 1;
       }
     </style>
-  <link rel="icon" href="/favicon.ico" /></head>
+  <link rel="icon" href="/favicon.ico" />
+  <script>
+    if (window.location.pathname.startsWith('/tv')) {
+      window.history.replaceState(null, '', '/?msx=1');
+    }
+  </script>
+  </head>
 
   <body>
     <!-- Use static rendering with Expo Router to support running without JavaScript. -->
