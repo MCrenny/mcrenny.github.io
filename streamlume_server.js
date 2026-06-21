@@ -48,6 +48,20 @@ app.get('/', (req, res, next) => {
   next();
 });
 
+// Serve TV web app (Media Station X) static files
+app.use('/tv', express.static(path.join(__dirname, 'tv')));
+app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
+app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
+
+// Intercept root for MSX devices
+app.get('/', (req, res, next) => {
+  if (req.query.msx === '1') {
+    res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  } else {
+    next();
+  }
+});
+
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
