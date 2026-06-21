@@ -491,24 +491,26 @@ async function handleTargetMessage(client, sender, userMsg, chatUsername, domain
       username: sender.username,
       text: replyText
     });
+    console.log(`[Partisan] Задача (партизан) добавлена в очередь отправки для ${username}. Очередь: ${sendQueue.length}`);
+
   } catch (err) {
-    console.error(`[Partisan] Ошибка генерации ответа:`, err.message);
+    console.error(`[Partisan] Не удалось обработать ответ для ${username}:`, err.message);
   }
 }
 
 async function handleHunterPost(client, postMessage, chatUsername) {
   try {
-    const prompt = \`
-      Ты обычный подписчик Telegram-канала @\${chatUsername}.
+    const prompt = `
+      Ты обычный подписчик Telegram-канала @${chatUsername}.
       Только что вышел новый пост:
-      "\${postMessage.message.substring(0, 500)}"
+      "${postMessage.message.substring(0, 500)}"
       
       Напиши 1 живой и короткий комментарий (1-2 предложения) к этому посту.
       В комментарии нативно (как бы между делом) порекомендуй приложение "StreamLume", сказав, что через бесплатную оболочку Media Station X на Smart TV (Samsung/LG) это приложение ставится за 1 минуту без флешек.
       Добавь, что инструкцию можно взять в боте @StreameLumeBot.
       
       ВАЖНО: Никаких длинных приветствий. Просто классный живой комментарий по теме поста + рекомендация.
-    \`;
+    `;
     
     const response = await ai.models.generateContent({
       model: 'gemini-flash-lite-latest',
@@ -526,16 +528,9 @@ async function handleHunterPost(client, postMessage, chatUsername) {
        commentTo: postMessage.id
     });
     
-    console.log(\`[Partisan] Охота: Успешно оставлен комментарий к посту \${postMessage.id} в @\${chatUsername}: "\${replyText}"\`);
+    console.log(`[Partisan] Охота: Успешно оставлен комментарий к посту ${postMessage.id} в @${chatUsername}: "${replyText}"`);
   } catch (err) {
-    console.error(\`[Partisan] Охота: Ошибка отправки комментария в @\${chatUsername}:\`, err.message);
-  }
-}
-    });
-    console.log(`[Partisan] Задача (партизан) добавлена в очередь отправки для ${username}. Очередь: ${sendQueue.length}`);
-
-  } catch (err) {
-    console.error(`[Partisan] Не удалось обработать ответ для ${username}:`, err.message);
+    console.error(`[Partisan] Охота: Ошибка отправки комментария в @${chatUsername}:`, err.message);
   }
 }
 
