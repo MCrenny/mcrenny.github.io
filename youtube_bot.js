@@ -1,15 +1,12 @@
 const { google } = require('googleapis');
 const { GoogleGenAI } = require('@google/genai');
 const dotenv = require('dotenv');
+const { isYoutubeCommentProcessed, markYoutubeCommentProcessed } = require('./db.js');
 
 dotenv.config({ override: true });
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-// Инициализация OAuth2 клиента будет внутри runYouTubeBot,
-// чтобы подхватывать свежие переменные окружения и очищать их от пробелов.
-
-const proxyManager = require('./proxy_manager');
+const proxyManager = require('./proxy_manager.js');
 
 async function runYouTubeBot(appType) {
   console.log(`[YouTubeBot] Запуск комментирования для: ${appType}`);
@@ -23,11 +20,20 @@ async function runYouTubeBot(appType) {
     return;
   }
 
-  let searchQuery = '';
   let botContext = '';
+  let searchQueries = [];
 
   if (appType === 'iptv') {
-    searchQuery = 'бесплатные iptv плейлисты настройка SmartTV фильмы';
+    searchQueries = [
+      'бесплатные iptv плейлисты настройка SmartTV фильмы',
+      'как настроить iptv на телевизоре lg',
+      'как смотреть фильмы бесплатно на смарт тв',
+      'лучший iptv плеер для телевизора',
+      'iptv samsung smart tv настройка',
+      'где взять рабочие iptv плейлисты',
+      'как установить media station x',
+      'media station x настройка iptv'
+    ];
     botContext = `Фишки приложения "StreamLume" (премиальный IPTV-плеер, Яндекс Диск: https://disk.yandex.ru/d/PLgFGtCwF8yCjg):
     • Избранное — собираешь свой пакет из 5000+ каналов из 8 разных источников
     • Для ТВ Samsung/LG идеальный запуск без флешек через Media Station X
@@ -38,7 +44,10 @@ async function runYouTubeBot(appType) {
     return;
   }
 
-  let attempts = 3;
+  const searchQuery = searchQueries[Math.floor(Math.random() * searchQueries.length)];
+  console.log(`[YouTubeBot] Выбран поисковый запрос: "${searchQuery}"`);
+
+  let attempts = 100;
   while (attempts > 0) {
     try {
       // 0. Подготавливаем прокси
@@ -61,12 +70,12 @@ async function runYouTubeBot(appType) {
         auth: oauth2Client
       });
 
-      // 1. Ищем релевантные видео (берем несколько, чтобы найти комментарии)
+      // 1. Ищем релевантные видео (берем максимум 50 видео для максимального охвата)
       const searchRes = await youtube.search.list({
         part: 'snippet',
         q: searchQuery,
-        order: 'relevance', // Берем популярные/релевантные, где есть комментарии
-        maxResults: 5,
+        order: 'relevance', 
+        maxResults: 50,
         type: 'video'
       });
 
@@ -75,11 +84,9 @@ async function runYouTubeBot(appType) {
         break;
       }
 
-      let targetCommentId = null;
-      let targetCommentText = null;
-      let targetVideoId = null;
+      let commentsPosted = 0;
 
-      // 2. Ищем комментарий с вопросом или болью пользователя
+      // 2. Идем по всем найденным видео и проверяем комментарии
       for (const video of searchRes.data.items) {
         const videoId = video.id.videoId;
         try {
@@ -87,108 +94,80 @@ async function runYouTubeBot(appType) {
             part: 'snippet',
             videoId: videoId,
             order: 'relevance',
-            maxResults: 20
+            maxResults: 50
           });
 
           if (commentsRes.data.items) {
             for (const thread of commentsRes.data.items) {
+               const commentId = thread.id;
+               
+               // Проверяем, отвечали ли мы уже на этот комментарий
+               const isProcessed = await isYoutubeCommentProcessed(commentId);
+               if (isProcessed) continue;
+
                const comment = thread.snippet.topLevelComment.snippet;
                const text = comment.textOriginal.toLowerCase();
+               
                // Ищем вопросы или типичные боли
-               const triggers = ['как', 'где', 'помогите', 'какой', 'подскажите', 'скачать', 'плеер', 'установить', 'не работает', 'проблема'];
+               const triggers = ['как', 'где', 'помогите', 'какой', 'подскажите', 'скачать', 'плеер', 'установить', 'не работает', 'проблема', 'что делать', 'ошибка', 'бесплатно'];
                const hasTrigger = triggers.some(t => text.includes(t));
                
-               if (hasTrigger && comment.textOriginal.length > 10 && comment.textOriginal.length < 300) {
-                  targetCommentId = thread.id;
-                  targetCommentText = comment.textOriginal;
-                  targetVideoId = videoId;
-                  break;
+               if (hasTrigger && comment.textOriginal.length > 10 && comment.textOriginal.length < 500) {
+                  const targetCommentText = comment.textOriginal;
+                  console.log(`[YouTubeBot] Найден вопрос от пользователя: "${targetCommentText.substring(0, 50)}..." (Видео: ${videoId})`);
+                  
+                  // 3. Формируем промпт для ИИ
+                  const promptText = `
+                    Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
+
+                    Контекст о приложении: ${botContext}
+
+                    Пользователь написал комментарий: "${targetCommentText}"
+
+                    Напиши ему ответ в 3 части (3-5 предложений всего):
+
+                    ЧАСТЬ 1 — Отвечаешь конкретно на его вопрос/проблему. По-человечески, без воды.
+                    ЧАСТЬ 2 — Как бы между прочим упоминаешь приложение через личный опыт. Выбери 1-2 фишки из контекста, которые решают именно его боль. Пример: "Я тоже долго мучился, пока не нашёл..." или "Была такая же история..."
+                    ЧАСТЬ 3 — Просишь отписаться если попробует. Например: "Если скачаешь — напиши потом работает или нет, самому интересно" или "Хочу знать как у других, у меня норм"
+
+                    ВАЖНО: никаких URL в тексте, никакой рекламной интонации, только текст комментария, язык — русский.
+                  `;
+
+                  // 4. Генерируем уникальный комментарий
+                  const aiResponse = await ai.models.generateContent({
+                    model: 'gemini-flash-lite-latest',
+                    contents: promptText,
+                  });
+                  
+                  let commentText = aiResponse.text.trim();
+                  if (commentText.startsWith('"') && commentText.endsWith('"')) {
+                    commentText = commentText.substring(1, commentText.length - 1);
+                  }
+
+                  // 5. Отправляем комментарий через API
+                  await youtube.comments.insert({
+                    part: 'snippet',
+                    requestBody: {
+                      snippet: {
+                        parentId: commentId,
+                        textOriginal: commentText
+                      }
+                    }
+                  });
+                  
+                  // Сохраняем в базу, чтобы больше не отвечать на этот же коммент
+                  await markYoutubeCommentProcessed(commentId);
+                  commentsPosted++;
+                  console.log(`[YouTubeBot] ✅ Ответили! Всего в этой сессии: ${commentsPosted}`);
                }
             }
           }
         } catch (err) {
-          // Комментарии могут быть отключены для конкретного видео, просто пропускаем
+          // Комментарии могут быть отключены для конкретного видео, или другие мелкие ошибки. Пропускаем.
         }
-        
-        if (targetCommentId) break;
       }
 
-      // 3. Формируем промпт для ИИ
-      let promptText = '';
-      if (targetCommentId) {
-        console.log(`[YouTubeBot] Найден вопрос от пользователя: "${targetCommentText}" (Видео: ${targetVideoId})`);
-        promptText = `
-          Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
-
-          Контекст о приложении: ${botContext}
-
-          Пользователь написал комментарий: "${targetCommentText}"
-
-          Напиши ему ответ в 3 части (3-5 предложений всего):
-
-          ЧАСТЬ 1 — Отвечаешь конкретно на его вопрос/проблему. По-человечески, без воды.
-          ЧАСТЬ 2 — Как бы между прочим упоминаешь приложение через личный опыт. Выбери 1-2 фишки из контекста, которые решают именно его боль. Пример: "Я тоже долго мучился, пока не нашёл..." или "Была такая же история..."
-          ЧАСТЬ 3 — Просишь отписаться если попробует. Например: "Если скачаешь — напиши потом работает или нет, самому интересно" или "Хочу знать как у других, у меня норм"
-
-          ВАЖНО: никаких URL в тексте, никакой рекламной интонации, только текст комментария, язык — русский.
-        `;
-      } else {
-        targetVideoId = searchRes.data.items[0].id.videoId;
-        console.log(`[YouTubeBot] Вопросов в комментариях не найдено. Оставим общий отзыв под видео ${targetVideoId}`);
-        promptText = `
-          Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
-
-          Контекст о приложении: ${botContext}
-
-          Напиши один живой комментарий под видео (2-3 предложения). Выгляди как обычный зритель, который делится находкой.
-          Упомяни 1-2 конкретные фишки приложения из контекста. В конце — короткий призыв попробовать и отписаться.
-          Никаких URL в тексте, только текст комментария, язык — русский.
-        `;
-      }
-
-      // 4. Генерируем уникальный комментарий
-      const aiResponse = await ai.models.generateContent({
-        model: 'gemini-flash-lite-latest',
-        contents: promptText,
-      });
-      
-      let commentText = aiResponse.text.trim();
-      if (commentText.startsWith('"') && commentText.endsWith('"')) {
-        commentText = commentText.substring(1, commentText.length - 1);
-      }
-
-      console.log(`[YouTubeBot] Сгенерирован ответ: "${commentText}"`);
-
-      // 5. Отправляем комментарий через API
-      if (targetCommentId) {
-        await youtube.comments.insert({
-          part: 'snippet',
-          requestBody: {
-            snippet: {
-              parentId: targetCommentId,
-              textOriginal: commentText
-            }
-          }
-        });
-        console.log(`[YouTubeBot] ✅ Успешно ответили пользователю!`);
-      } else {
-        await youtube.commentThreads.insert({
-          part: 'snippet',
-          requestBody: {
-            snippet: {
-              videoId: targetVideoId,
-              topLevelComment: {
-                snippet: {
-                  textOriginal: commentText
-                }
-              }
-            }
-          }
-        });
-        console.log(`[YouTubeBot] ✅ Успешно оставлен комментарий под видео.`);
-      }
-
-      // Если дошли сюда, значит все прошло успешно
+      console.log(`[YouTubeBot] Цикл комментирования завершен. Ответов оставлено: ${commentsPosted}`);
       break;
 
     } catch (error) {
@@ -217,6 +196,9 @@ async function runYouTubeBot(appType) {
       } else if (error.message && error.message.includes('invalid_grant')) {
         console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_grant): Ваш REFRESH_TOKEN устарел или был отозван.');
         break;
+      } else if (error.message && error.message.includes('quotaExceeded')) {
+        console.error('[YouTubeBot] ❌ Квота YouTube API исчерпана (ограничение токенов Google).');
+        break;
       } else {
         console.error(`[YouTubeBot] ❌ Ошибка:`, error.message);
         break;
@@ -226,4 +208,3 @@ async function runYouTubeBot(appType) {
 }
 
 module.exports = { runYouTubeBot };
-

@@ -48,6 +48,56 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const fs = require('fs');
+
+let dbPath = process.env.DB_PATH;
+if (!dbPath) {
+  if (fs.existsSync('/data')) {
+    dbPath = '/data/database.sqlite';
+    // Migration: Copy database from current directory if it exists and /data doesn't have it
+    const localDbPath = path.resolve(process.cwd(), 'database.sqlite');
+    if (!fs.existsSync(dbPath) && fs.existsSync(localDbPath)) {
+      try {
+        fs.copyFileSync(localDbPath, dbPath);
+        console.log('[DB Migration] Copied database from local workspace to persistent volume.');
+      } catch (err) {
+        console.error('[DB Migration] Failed to copy database:', err.message);
+      }
+    }
+  } else {
+    dbPath = path.resolve(process.cwd(), 'database.sqlite');
+  }
+}
+
+console.log('[DB] Database path:', dbPath);
+const db = new Database(dbPath);
+
+// Initialize DB
+db.exec(`
+  CREATE TABLE IF NOT EXISTS keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    telegram_id TEXT,
+    status TEXT DEFAULT 'active',
+    expires_at DATETIME,
+    is_trial INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS processed_orders (
+    order_id TEXT PRIMARY KEY,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS contacted_users (
     telegram_user_id TEXT PRIMARY KEY,
     username TEXT,
@@ -59,6 +109,11 @@ db.exec(`
     message_id INTEGER,
     processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (chat_id, message_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS processed_youtube_comments (
+    comment_id TEXT PRIMARY KEY,
+    processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS dynamic_chats (
@@ -191,6 +246,17 @@ const markMessageAsProcessed = (chatId, messageId) => {
   return Promise.resolve();
 };
 
+const isYoutubeCommentProcessed = (commentId) => {
+  const stmt = db.prepare('SELECT comment_id FROM processed_youtube_comments WHERE comment_id = ?');
+  return Promise.resolve(!!stmt.get(commentId.toString()));
+};
+
+const markYoutubeCommentProcessed = (commentId) => {
+  const stmt = db.prepare('INSERT OR REPLACE INTO processed_youtube_comments (comment_id) VALUES (?)');
+  stmt.run(commentId.toString());
+  return Promise.resolve();
+};
+
 const getDynamicChats = () => {
   const stmt = db.prepare('SELECT username FROM dynamic_chats');
   const rows = stmt.all();
@@ -258,6 +324,8 @@ module.exports = {
   markUserAsContacted,
   isMessageProcessed,
   markMessageAsProcessed,
+  isYoutubeCommentProcessed,
+  markYoutubeCommentProcessed,
   getDynamicChats,
   saveDynamicChat,
   getDynamicHunters,

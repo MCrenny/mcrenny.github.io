@@ -58,9 +58,9 @@ class ProxyManager {
       const agent = new HttpsProxyAgent(proxyUrl);
       
       try {
-        // Делаем легкий запрос к Google для проверки работоспособности
+        // Делаем легкий запрос к YouTube для проверки работоспособности HTTPS
         // Тайм-аут 3 секунды, нам нужны только быстрые прокси
-        await axios.get('https://www.google.com/generate_204', {
+        await axios.get('https://www.youtube.com', {
           httpsAgent: agent,
           timeout: 3000,
           validateStatus: () => true // Любой ответ от сервера (даже 404) означает, что прокси работает
