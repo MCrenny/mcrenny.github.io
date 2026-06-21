@@ -43,17 +43,22 @@ console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
 
-// Serve TV web app (Media Station X)
+// Serve TV web app (Media Station X) static files
 app.use('/tv', express.static(path.join(__dirname, 'tv')));
 app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
+app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
 
 // MSX direct domain support (without slashes)
 app.get(['/start.json', '/msx/start.json'], (req, res) => {
   res.sendFile(path.join(__dirname, 'tv', 'start.json'));
 });
 
-// Root route to serve landing page
+// Root route to serve landing page OR TV app based on query param
 app.get('/', (req, res) => {
+  if (req.query.msx === '1' || req.query.tv === '1') {
+    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  }
+
   const fs = require('fs');
   const possiblePaths = [
     path.join(__dirname, 'landing/index.html'),
