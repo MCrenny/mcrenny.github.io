@@ -16,7 +16,7 @@ function processDir(dir) {
       }
       if (content.includes('import.meta')) {
         console.log(`Fixing remaining import.meta in ${fullPath}`);
-        content = content.replace(/import\.meta/g, '({env:{MODE:"production"},url:""})');
+        content = content.replace(/import\.meta/g, '({env:{MODE:"production"},url:window.location.href})');
         fs.writeFileSync(fullPath, content, 'utf8');
       }
     }
