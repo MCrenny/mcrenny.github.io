@@ -1,7 +1,13 @@
 {
-  "name": "StreamLume",
-  "version": "1.0",
-  "description": "Премиальное мобильное IPTV-приложение",
-  "parameter": "content:http://iptvpay-svmorozoww.amvera.io/tv/index.html",
-  "type": "link"
+  "type": "list",
+  "headline": "StreamLume",
+  "ready": {
+    "action": "execute:http://iptvpay-svmorozoww.amvera.io/tv/index.html"
+  },
+  "items": [
+    {
+      "title": "Запустить StreamLume",
+      "action": "execute:http://iptvpay-svmorozoww.amvera.io/tv/index.html"
+    }
+  ]
 }
