@@ -40,9 +40,8 @@ async function runYouTubeBot(appType) {
     searchQuery = 'бесплатные iptv плейлисты настройка SmartTV фильмы';
     botContext = `Фишки приложения "StreamLume" (премиальный IPTV-плеер, Яндекс Диск: https://disk.yandex.ru/d/PLgFGtCwF8yCjg):
     • Избранное — собираешь свой пакет из 5000+ каналов из 8 разных источников
+    • Для ТВ Samsung/LG идеальный запуск без флешек через Media Station X
     • Не нужно париться с настройкой — всё работает сразу
-    • Поддержка своих M3U-плейлистов
-    • Работает на Smart TV, телефоне, планшете
     • Смена соотношения сторон, HD-качество, EPG-программа
     • 3 дня бесплатно — через Telegram-бот @StreameLumeBot`;
   } else {
