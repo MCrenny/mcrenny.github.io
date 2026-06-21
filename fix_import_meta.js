@@ -19,9 +19,16 @@ function processDir(dir) {
         content = content.replace(/import\.meta/g, '({env:{MODE:"production"},url:window.location.href})');
         fs.writeFileSync(fullPath, content, 'utf8');
       }
+    } else if (file === 'index.html') {
+      let content = fs.readFileSync(fullPath, 'utf8');
+      if (!content.includes('ResizeObserver.global.js')) {
+        console.log(`Injecting ResizeObserver polyfill into ${fullPath}`);
+        content = content.replace('<head>', '<head>\n    <script src="https://unpkg.com/resize-observer-polyfill@1.5.1/dist/ResizeObserver.global.js"></script>');
+        fs.writeFileSync(fullPath, content, 'utf8');
+      }
     }
   }
 }
 
-processDir(path.join(__dirname, 'tv', '_expo', 'static', 'js', 'web'));
+processDir(path.join(__dirname, 'tv'));
 console.log('Done fixing JS bundles.');
