@@ -58,11 +58,12 @@ class ProxyManager {
       const agent = new HttpsProxyAgent(proxyUrl);
       
       try {
-        // Делаем легкий запрос к Google API для проверки работоспособности
+        // Делаем легкий запрос к Google для проверки работоспособности
         // Тайм-аут 3 секунды, нам нужны только быстрые прокси
-        await axios.get('https://oauth2.googleapis.com', {
+        await axios.get('https://www.google.com/generate_204', {
           httpsAgent: agent,
-          timeout: 3000
+          timeout: 3000,
+          validateStatus: () => true // Любой ответ от сервера (даже 404) означает, что прокси работает
         });
         
         console.log(`[ProxyManager] ✅ Найден рабочий прокси: ${proxy}`);
@@ -70,7 +71,7 @@ class ProxyManager {
         this.cachedAgent = agent;
         return agent;
       } catch (e) {
-        // Прокси не работает, идем дальше
+        // Прокси не работает (таймаут или ошибка сети), идем дальше
       }
     }
 
