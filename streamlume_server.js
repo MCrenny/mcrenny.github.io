@@ -49,7 +49,16 @@ app.get('/', (req, res, next) => {
 });
 
 // Serve TV web app (Media Station X) static files
-app.use('/tv', express.static(path.join(__dirname, 'tv')));
+const tvStaticOptions = {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.json') || path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+};
+app.use('/tv', express.static(path.join(__dirname, 'tv'), tvStaticOptions));
 app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
 app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
 
@@ -66,8 +75,8 @@ app.get('/', (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
 
-// Serve TV web app (Media Station X) static files
-app.use('/tv', express.static(path.join(__dirname, 'tv')));
+// Serve TV web app (Media Station X) static files (fallback)
+app.use('/tv', express.static(path.join(__dirname, 'tv'), tvStaticOptions));
 app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
 app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
 
