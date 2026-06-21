@@ -174,7 +174,10 @@ async function runYouTubeBot(appType) {
 
   } catch (error) {
     if (error.message && error.message.includes('oauth2.googleapis.com/token failed')) {
-      console.log(`[YouTubeBot] Временная ошибка сети при обновлении токена Google API. Запрос отложен.`);
+      console.log(`[YouTubeBot] ⚠️ Ошибка сети при обновлении токена Google API:`, error.message);
+      if (error.response && error.response.data) {
+        console.log(`[YouTubeBot] Детали ответа Google:`, error.response.data);
+      }
     } else if (error.message && error.message.includes('503')) {
       console.log('[YouTubeBot] ИИ-модель временно недоступна (Gemini 503). Запрос отложен.');
     } else if (error.message && error.message.includes('invalid_client')) {
