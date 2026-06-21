@@ -40,9 +40,14 @@ const configChats = process.env.PARTISAN_CHATS
   ? process.env.PARTISAN_CHATS.split(',').map(s => s.trim()) 
   : DEFAULT_CHATS;
 
+const DEFAULT_HUNTER_CHANNELS = ['kinoman', 'wylsared', 'rozetked', 'tv_box'];
+const configHunterChannels = process.env.HUNTER_CHANNELS 
+  ? process.env.HUNTER_CHANNELS.split(',').map(s => s.trim()) 
+  : DEFAULT_HUNTER_CHANNELS;
+
 function getFilteredTargetChats() {
   const banned = new Set(getBannedChats().map(c => c.toLowerCase()));
-  const allChats = [...new Set([...configChats, ...getDynamicChats()])];
+  const allChats = [...new Set([...configChats, ...configHunterChannels, ...getDynamicChats()])];
   return allChats.filter(c => !banned.has(c.toLowerCase()));
 }
 
@@ -118,20 +123,39 @@ async function populateChatMap(client) {
         // 1. Проверяем, если это канал вещания (только для чтения)
         if (entity.broadcast) {
           const chatName = entity.username || idStr;
-          console.log(`[Partisan] Обнаружен broadcast-канал @${chatName}. Выходим...`);
-          try {
-            await client.invoke(
-              new Api.channels.LeaveChannel({
-                channel: entity
-              })
-            );
-            if (entity.username) saveBannedChat(entity.username);
-            saveBannedChat(idStr);
-            refreshTargetChats();
-          } catch (leaveErr) {
-            console.error(`[Partisan] Ошибка выхода из канала @${chatName}:`, leaveErr.message);
+          const isHunter = entity.username && configHunterChannels.some(h => h.toLowerCase() === entity.username.toLowerCase());
+          
+          if (isHunter) {
+             try {
+                const full = await client.invoke(new Api.channels.GetFullChannel({ channel: entity }));
+                if (!full.fullChat.linkedChatId) {
+                   console.log(`[Partisan] Охота: В канале @${chatName} отключены комментарии. Выходим...`);
+                   await client.invoke(new Api.channels.LeaveChannel({ channel: entity }));
+                   saveBannedChat(entity.username);
+                   refreshTargetChats();
+                   continue;
+                } else {
+                   console.log(`[Partisan] Охота: Канал @${chatName} подходит (комментарии включены).`);
+                }
+             } catch (err) {
+                console.error(`[Partisan] Ошибка проверки канала @${chatName}:`, err.message);
+             }
+          } else {
+            console.log(`[Partisan] Обнаружен broadcast-канал @${chatName}. Выходим...`);
+            try {
+              await client.invoke(
+                new Api.channels.LeaveChannel({
+                  channel: entity
+                })
+              );
+              if (entity.username) saveBannedChat(entity.username);
+              saveBannedChat(idStr);
+              refreshTargetChats();
+            } catch (leaveErr) {
+              console.error(`[Partisan] Ошибка выхода из канала @${chatName}:`, leaveErr.message);
+            }
+            continue;
           }
-          continue;
         }
 
         // 2. Проверяем, если писать запрещено для всех участников по умолчанию
@@ -234,6 +258,13 @@ export async function startPartisanBot(retryCount = 0) {
         );
 
         if (!isTargetChat && !isPrivateReply) return;
+
+        const isHunter = chatUsername && configHunterChannels.some(h => h.toLowerCase() === chatUsername.toLowerCase());
+        if (isHunter && message.post) {
+            console.log(`[Partisan] Охота: Новый пост в канале @${chatUsername}! Готовим комментарий...`);
+            setTimeout(() => handleHunterPost(client, message, chatUsername), 120000); // Ждем 2 минуты
+            return;
+        }
 
         // Убрана логика набора тестировщиков
 
@@ -448,6 +479,47 @@ async function handleTargetMessage(client, sender, userMsg, chatUsername, domain
       senderId,
       username: sender.username,
       text: replyText
+    });
+  } catch (err) {
+    console.error(`[Partisan] Ошибка генерации ответа:`, err.message);
+  }
+}
+
+async function handleHunterPost(client, postMessage, chatUsername) {
+  try {
+    const prompt = \`
+      Ты обычный подписчик Telegram-канала @\${chatUsername}.
+      Только что вышел новый пост:
+      "\${postMessage.message.substring(0, 500)}"
+      
+      Напиши 1 живой и короткий комментарий (1-2 предложения) к этому посту.
+      В комментарии нативно (как бы между делом) порекомендуй приложение "StreamLume", сказав, что через бесплатную оболочку Media Station X на Smart TV (Samsung/LG) это приложение ставится за 1 минуту без флешек.
+      Добавь, что инструкцию можно взять в боте @StreameLumeBot.
+      
+      ВАЖНО: Никаких длинных приветствий. Просто классный живой комментарий по теме поста + рекомендация.
+    \`;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-flash-lite-latest',
+      contents: prompt,
+    });
+    
+    let replyText = response.text.trim();
+    // Убираем возможные кавычки вокруг текста
+    if (replyText.startsWith('"') && replyText.endsWith('"')) {
+      replyText = replyText.substring(1, replyText.length - 1);
+    }
+    
+    await client.sendMessage(postMessage.peerId, {
+       message: replyText,
+       commentTo: postMessage.id
+    });
+    
+    console.log(\`[Partisan] Охота: Успешно оставлен комментарий к посту \${postMessage.id} в @\${chatUsername}: "\${replyText}"\`);
+  } catch (err) {
+    console.error(\`[Partisan] Охота: Ошибка отправки комментария в @\${chatUsername}:\`, err.message);
+  }
+}
     });
     console.log(`[Partisan] Задача (партизан) добавлена в очередь отправки для ${username}. Очередь: ${sendQueue.length}`);
 
