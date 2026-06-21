@@ -2,7 +2,7 @@
   "type": "pages",
   "headline": "StreamLume",
   "ready": {
-    "action": "interaction:load:https://iptvpay-svmorozoww.amvera.io/?msx=1"
+    "action": "interaction:load:https://iptvpay-svmorozoww.amvera.io/tv/index.html?msx=1"
   },
   "pages": [
     {
@@ -11,7 +11,7 @@
           "type": "button",
           "layout": "0,0,12,2",
           "title": "Запустить StreamLume",
-          "action": "interaction:load:https://iptvpay-svmorozoww.amvera.io/?msx=1"
+          "action": "interaction:load:https://iptvpay-svmorozoww.amvera.io/tv/index.html?msx=1"
         }
       ]
     }
