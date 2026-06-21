@@ -641,12 +641,15 @@ app.listen(PORT, () => {
     }
   }, 1000);
 
-  // Инициализация партизанского юзербота в фоне
+  // Инициализация партизанского юзербота в фоне отключена на этом сервере,
+  // так как сессия уже используется на сервере АвтоСпутник (во избежание AUTH_KEY_DUPLICATED).
+  /*
   setTimeout(() => {
     startPartisanBot().catch(err => {
       console.error('[StreamLume Startup] Failed to start Partisan bot:', err.message);
     });
   }, 5000);
+  */
 
   // Auto-rebuild playlist every 6 hours
   setInterval(async () => {
