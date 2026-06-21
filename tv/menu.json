@@ -1,13 +1,19 @@
 {
-  "type": "list",
+  "type": "pages",
   "headline": "StreamLume",
   "ready": {
     "action": "execute:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
   },
-  "items": [
+  "pages": [
     {
-      "title": "Запустить StreamLume",
-      "action": "execute:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
+      "items": [
+        {
+          "type": "button",
+          "layout": "0,0,12,2",
+          "title": "Запустить StreamLume",
+          "action": "execute:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
+        }
+      ]
     }
   ]
 }
