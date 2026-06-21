@@ -41,9 +41,6 @@
       sendLog({ type: 'unhandledrejection', reason: event.reason ? event.reason.toString() : 'unknown' });
     };
     
-    if (window.location.pathname.startsWith('/tv')) {
-      window.history.replaceState(null, '', '/?msx=1');
-    }
   </script>
   </head>
 
