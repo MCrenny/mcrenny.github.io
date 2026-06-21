@@ -1,0 +1,13 @@
+{
+  "type": "list",
+  "headline": "StreamLume",
+  "ready": {
+    "action": "execute:http://iptvpay-svmorozoww.amvera.io/tv/index.html"
+  },
+  "items": [
+    {
+      "title": "Запустить StreamLume",
+      "action": "execute:http://iptvpay-svmorozoww.amvera.io/tv/index.html"
+    }
+  ]
+}
