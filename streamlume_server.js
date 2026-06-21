@@ -304,7 +304,7 @@ const bot = new Telegraf(BOT_TOKEN);
 const mainKeyboard = Markup.keyboard([
   ['💎 Получить доступ', '🎁 Бесплатный доступ'],
   ['🔑 Мой ключ', '📖 Инструкция'],
-  ['🆘 Поддержка']
+  ['📺 Для Smart TV (Samsung/LG)', '🆘 Поддержка']
 ]).resize();
 
 bot.start((ctx) => {
@@ -570,6 +570,16 @@ bot.hears('📖 Инструкция', async (ctx) => {
 
 bot.hears('🆘 Поддержка', (ctx) => {
   ctx.reply('По всем вопросам пишите нашему администратору: @ZDedMorozZ');
+});
+
+bot.hears('📺 Для Smart TV (Samsung/LG)', (ctx) => {
+  ctx.reply('📺 *Как смотреть на Samsung (Tizen) и LG (webOS):*\n\n' +
+    '1. Откройте магазин приложений на вашем телевизоре (Smart Hub / Content Store).\n' +
+    '2. Найдите и установите бесплатное приложение *Media Station X*.\n' +
+    '3. Запустите его, зайдите в **Settings** (Настройки) ➡️ **Start Parameter** (Стартовый параметр) ➡️ **Setup**.\n' +
+    '4. Введите короткую ссылку: `https://clck.ru/3UGjqa` и сохраните.\n' +
+    '5. Нажмите "Yes" (Да) для подтверждения перезапуска.\n\n' +
+    'Готово! StreamLume запустится на вашем экране. Просто введите ваш ключ из этого бота.', { parse_mode: 'Markdown' });
 });
 
 // Временный обработчик для получения file_id (скинь боту APK, чтобы получить код)
