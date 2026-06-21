@@ -9,6 +9,8 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Инициализация OAuth2 клиента будет внутри runYouTubeBot,
 // чтобы подхватывать свежие переменные окружения и очищать их от пробелов.
 
+const proxyManager = require('./proxy_manager');
+
 async function runYouTubeBot(appType) {
   console.log(`[YouTubeBot] Запуск комментирования для: ${appType}`);
 
@@ -20,14 +22,6 @@ async function runYouTubeBot(appType) {
     console.log('[YouTubeBot] Отмена: Не настроены учетные данные YouTube API (CLIENT_ID, CLIENT_SECRET или REFRESH_TOKEN). Проверьте переменные среды в Amvera.');
     return;
   }
-
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:3000/oauth2callback');
-  oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-  const youtube = google.youtube({
-    version: 'v3',
-    auth: oauth2Client
-  });
 
   let searchQuery = '';
   let botContext = '';
@@ -44,148 +38,189 @@ async function runYouTubeBot(appType) {
     return;
   }
 
-  try {
-    // 1. Ищем релевантные видео (берем несколько, чтобы найти комментарии)
-    const searchRes = await youtube.search.list({
-      part: 'snippet',
-      q: searchQuery,
-      order: 'relevance', // Берем популярные/релевантные, где есть комментарии
-      maxResults: 5,
-      type: 'video'
-    });
-
-    if (!searchRes.data.items || searchRes.data.items.length === 0) {
-      console.log('[YouTubeBot] Подходящих видео не найдено.');
-      return;
-    }
-
-    let targetCommentId = null;
-    let targetCommentText = null;
-    let targetVideoId = null;
-
-    // 2. Ищем комментарий с вопросом или болью пользователя
-    for (const video of searchRes.data.items) {
-      const videoId = video.id.videoId;
-      try {
-        const commentsRes = await youtube.commentThreads.list({
-          part: 'snippet',
-          videoId: videoId,
-          order: 'relevance',
-          maxResults: 20
+  let attempts = 3;
+  while (attempts > 0) {
+    try {
+      // 0. Подготавливаем прокси
+      const agent = await proxyManager.getWorkingProxy();
+      if (agent) {
+        google.options({
+          httpAgent: agent,
+          httpsAgent: agent
         });
-
-        if (commentsRes.data.items) {
-          for (const thread of commentsRes.data.items) {
-             const comment = thread.snippet.topLevelComment.snippet;
-             const text = comment.textOriginal.toLowerCase();
-             // Ищем вопросы или типичные боли
-             const triggers = ['как', 'где', 'помогите', 'какой', 'подскажите', 'скачать', 'плеер', 'установить', 'не работает', 'проблема'];
-             const hasTrigger = triggers.some(t => text.includes(t));
-             
-             if (hasTrigger && comment.textOriginal.length > 10 && comment.textOriginal.length < 300) {
-                targetCommentId = thread.id;
-                targetCommentText = comment.textOriginal;
-                targetVideoId = videoId;
-                break;
-             }
-          }
-        }
-      } catch (err) {
-        // Комментарии могут быть отключены для конкретного видео, просто пропускаем
+      } else {
+        console.log('[YouTubeBot] Не удалось найти рабочий прокси. Запрос отменен.');
+        return;
       }
-      
-      if (targetCommentId) break;
-    }
 
-    // 3. Формируем промпт для ИИ
-    let promptText = '';
-    if (targetCommentId) {
-      console.log(`[YouTubeBot] Найден вопрос от пользователя: "${targetCommentText}" (Видео: ${targetVideoId})`);
-      promptText = `
-        Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
+      const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:3000/oauth2callback');
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
 
-        Контекст о приложении: ${botContext}
-
-        Пользователь написал комментарий: "${targetCommentText}"
-
-        Напиши ему ответ в 3 части (3-5 предложений всего):
-
-        ЧАСТЬ 1 — Отвечаешь конкретно на его вопрос/проблему. По-человечески, без воды.
-        ЧАСТЬ 2 — Как бы между прочим упоминаешь приложение через личный опыт. Выбери 1-2 фишки из контекста, которые решают именно его боль. Пример: "Я тоже долго мучился, пока не нашёл..." или "Была такая же история..."
-        ЧАСТЬ 3 — Просишь отписаться если попробует. Например: "Если скачаешь — напиши потом работает или нет, самому интересно" или "Хочу знать как у других, у меня норм"
-
-        ВАЖНО: никаких URL в тексте, никакой рекламной интонации, только текст комментария, язык — русский.
-      `;
-    } else {
-      targetVideoId = searchRes.data.items[0].id.videoId;
-      console.log(`[YouTubeBot] Вопросов в комментариях не найдено. Оставим общий отзыв под видео ${targetVideoId}`);
-      promptText = `
-        Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
-
-        Контекст о приложении: ${botContext}
-
-        Напиши один живой комментарий под видео (2-3 предложения). Выгляди как обычный зритель, который делится находкой.
-        Упомяни 1-2 конкретные фишки приложения из контекста. В конце — короткий призыв попробовать и отписаться.
-        Никаких URL в тексте, только текст комментария, язык — русский.
-      `;
-    }
-
-    // 4. Генерируем уникальный комментарий
-    const aiResponse = await ai.models.generateContent({
-      model: 'gemini-flash-lite-latest',
-      contents: promptText,
-    });
-    
-    let commentText = aiResponse.text.trim();
-    if (commentText.startsWith('"') && commentText.endsWith('"')) {
-      commentText = commentText.substring(1, commentText.length - 1);
-    }
-
-    console.log(`[YouTubeBot] Сгенерирован ответ: "${commentText}"`);
-
-    // 5. Отправляем комментарий через API
-    if (targetCommentId) {
-      await youtube.comments.insert({
-        part: 'snippet',
-        requestBody: {
-          snippet: {
-            parentId: targetCommentId,
-            textOriginal: commentText
-          }
-        }
+      const youtube = google.youtube({
+        version: 'v3',
+        auth: oauth2Client
       });
-      console.log(`[YouTubeBot] ✅ Успешно ответили пользователю!`);
-    } else {
-      await youtube.commentThreads.insert({
+
+      // 1. Ищем релевантные видео (берем несколько, чтобы найти комментарии)
+      const searchRes = await youtube.search.list({
         part: 'snippet',
-        requestBody: {
-          snippet: {
-            videoId: targetVideoId,
-            topLevelComment: {
-              snippet: {
-                textOriginal: commentText
+        q: searchQuery,
+        order: 'relevance', // Берем популярные/релевантные, где есть комментарии
+        maxResults: 5,
+        type: 'video'
+      });
+
+      if (!searchRes.data.items || searchRes.data.items.length === 0) {
+        console.log('[YouTubeBot] Подходящих видео не найдено.');
+        break;
+      }
+
+      let targetCommentId = null;
+      let targetCommentText = null;
+      let targetVideoId = null;
+
+      // 2. Ищем комментарий с вопросом или болью пользователя
+      for (const video of searchRes.data.items) {
+        const videoId = video.id.videoId;
+        try {
+          const commentsRes = await youtube.commentThreads.list({
+            part: 'snippet',
+            videoId: videoId,
+            order: 'relevance',
+            maxResults: 20
+          });
+
+          if (commentsRes.data.items) {
+            for (const thread of commentsRes.data.items) {
+               const comment = thread.snippet.topLevelComment.snippet;
+               const text = comment.textOriginal.toLowerCase();
+               // Ищем вопросы или типичные боли
+               const triggers = ['как', 'где', 'помогите', 'какой', 'подскажите', 'скачать', 'плеер', 'установить', 'не работает', 'проблема'];
+               const hasTrigger = triggers.some(t => text.includes(t));
+               
+               if (hasTrigger && comment.textOriginal.length > 10 && comment.textOriginal.length < 300) {
+                  targetCommentId = thread.id;
+                  targetCommentText = comment.textOriginal;
+                  targetVideoId = videoId;
+                  break;
+               }
+            }
+          }
+        } catch (err) {
+          // Комментарии могут быть отключены для конкретного видео, просто пропускаем
+        }
+        
+        if (targetCommentId) break;
+      }
+
+      // 3. Формируем промпт для ИИ
+      let promptText = '';
+      if (targetCommentId) {
+        console.log(`[YouTubeBot] Найден вопрос от пользователя: "${targetCommentText}" (Видео: ${targetVideoId})`);
+        promptText = `
+          Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
+
+          Контекст о приложении: ${botContext}
+
+          Пользователь написал комментарий: "${targetCommentText}"
+
+          Напиши ему ответ в 3 части (3-5 предложений всего):
+
+          ЧАСТЬ 1 — Отвечаешь конкретно на его вопрос/проблему. По-человечески, без воды.
+          ЧАСТЬ 2 — Как бы между прочим упоминаешь приложение через личный опыт. Выбери 1-2 фишки из контекста, которые решают именно его боль. Пример: "Я тоже долго мучился, пока не нашёл..." или "Была такая же история..."
+          ЧАСТЬ 3 — Просишь отписаться если попробует. Например: "Если скачаешь — напиши потом работает или нет, самому интересно" или "Хочу знать как у других, у меня норм"
+
+          ВАЖНО: никаких URL в тексте, никакой рекламной интонации, только текст комментария, язык — русский.
+        `;
+      } else {
+        targetVideoId = searchRes.data.items[0].id.videoId;
+        console.log(`[YouTubeBot] Вопросов в комментариях не найдено. Оставим общий отзыв под видео ${targetVideoId}`);
+        promptText = `
+          Ты — обычный зритель на YouTube, пишешь как живой человек, коротко и по-русски.
+
+          Контекст о приложении: ${botContext}
+
+          Напиши один живой комментарий под видео (2-3 предложения). Выгляди как обычный зритель, который делится находкой.
+          Упомяни 1-2 конкретные фишки приложения из контекста. В конце — короткий призыв попробовать и отписаться.
+          Никаких URL в тексте, только текст комментария, язык — русский.
+        `;
+      }
+
+      // 4. Генерируем уникальный комментарий
+      const aiResponse = await ai.models.generateContent({
+        model: 'gemini-flash-lite-latest',
+        contents: promptText,
+      });
+      
+      let commentText = aiResponse.text.trim();
+      if (commentText.startsWith('"') && commentText.endsWith('"')) {
+        commentText = commentText.substring(1, commentText.length - 1);
+      }
+
+      console.log(`[YouTubeBot] Сгенерирован ответ: "${commentText}"`);
+
+      // 5. Отправляем комментарий через API
+      if (targetCommentId) {
+        await youtube.comments.insert({
+          part: 'snippet',
+          requestBody: {
+            snippet: {
+              parentId: targetCommentId,
+              textOriginal: commentText
+            }
+          }
+        });
+        console.log(`[YouTubeBot] ✅ Успешно ответили пользователю!`);
+      } else {
+        await youtube.commentThreads.insert({
+          part: 'snippet',
+          requestBody: {
+            snippet: {
+              videoId: targetVideoId,
+              topLevelComment: {
+                snippet: {
+                  textOriginal: commentText
+                }
               }
             }
           }
-        }
-      });
-      console.log(`[YouTubeBot] ✅ Успешно оставлен комментарий под видео.`);
-    }
-
-  } catch (error) {
-    if (error.message && error.message.includes('oauth2.googleapis.com/token failed')) {
-      console.log(`[YouTubeBot] ⚠️ Ошибка сети при обновлении токена Google API:`, error.message);
-      if (error.response && error.response.data) {
-        console.log(`[YouTubeBot] Детали ответа Google:`, error.response.data);
+        });
+        console.log(`[YouTubeBot] ✅ Успешно оставлен комментарий под видео.`);
       }
-    } else if (error.message && error.message.includes('503')) {
-      console.log('[YouTubeBot] ИИ-модель временно недоступна (Gemini 503). Запрос отложен.');
-    } else if (error.message && error.message.includes('invalid_client')) {
-      console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_client): Проверьте YOUTUBE_CLIENT_ID и YOUTUBE_CLIENT_SECRET в панели Amvera. Они должны точно совпадать с теми, для которых был выпущен REFRESH_TOKEN, и не содержать лишних пробелов.');
-    } else if (error.message && error.message.includes('invalid_grant')) {
-      console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_grant): Ваш REFRESH_TOKEN устарел или был отозван. Нужно выпустить новый токен.');
-    } else {
-      console.error(`[YouTubeBot] ❌ Ошибка:`, error.message);
+
+      // Если дошли сюда, значит все прошло успешно
+      break;
+
+    } catch (error) {
+      const isNetworkError = error.message && (
+        error.message.includes('oauth2.googleapis.com/token failed') || 
+        error.message.includes('ETIMEDOUT') || 
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('socket hang up')
+      );
+
+      if (isNetworkError) {
+        console.log(`[YouTubeBot] ⚠️ Сетевая ошибка (вероятно прокси умер):`, error.message);
+        proxyManager.clearCache();
+        attempts--;
+        if (attempts > 0) {
+          console.log(`[YouTubeBot] Пробуем еще раз (осталось попыток: ${attempts})...`);
+        } else {
+          console.log(`[YouTubeBot] ❌ Все попытки исчерпаны. Отмена задачи.`);
+        }
+      } else if (error.message && error.message.includes('503')) {
+        console.log('[YouTubeBot] ИИ-модель временно недоступна (Gemini 503). Запрос отложен.');
+        break;
+      } else if (error.message && error.message.includes('invalid_client')) {
+        console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_client): Проверьте YOUTUBE_CLIENT_ID и YOUTUBE_CLIENT_SECRET в панели Amvera.');
+        break;
+      } else if (error.message && error.message.includes('invalid_grant')) {
+        console.error('[YouTubeBot] ❌ Ошибка авторизации (invalid_grant): Ваш REFRESH_TOKEN устарел или был отозван.');
+        break;
+      } else {
+        console.error(`[YouTubeBot] ❌ Ошибка:`, error.message);
+        break;
+      }
     }
   }
 }
