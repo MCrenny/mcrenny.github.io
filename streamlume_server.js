@@ -46,6 +46,11 @@ app.use(express.static(__dirname));
 // Serve TV web app (Media Station X)
 app.use('/tv', express.static(path.join(__dirname, 'tv')));
 
+// MSX direct domain support (without slashes)
+app.get(['/start.json', '/msx/start.json'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'tv', 'start.json'));
+});
+
 // Root route to serve landing page
 app.get('/', (req, res) => {
   const fs = require('fs');
