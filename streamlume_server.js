@@ -109,11 +109,7 @@ app.post('/api/tv-log', (req, res) => {
 app.get('/api/admin/stats', (req, res) => {
   try {
     const dbase = require('./db.js');
-    const stmt = dbase.db.prepare("SELECT * FROM keys"); // assuming db is exported, wait, db is not exported. Let's just create a new connection to database.sqlite
-    const Database = require('better-sqlite3');
-    const path = require('path');
-    const dbPath = path.join(__dirname, 'database.sqlite');
-    const tempDb = new Database(dbPath, { readonly: true });
+    const tempDb = dbase.db;
     
     const keys = tempDb.prepare("SELECT * FROM keys").all();
     const now = Date.now();
@@ -123,9 +119,8 @@ app.get('/api/admin/stats', (req, res) => {
       if (!k.expiresAt || k.expiresAt > now) active++;
       if (k.userId) bound++;
     });
-    tempDb.close();
     
-    res.json({ total_keys: keys.length, active_keys: active, bound_to_device: bound });
+    res.json({ project: 'StreamLume', total_keys: keys.length, active_keys: active, bound_to_device: bound });
   } catch (e) {
     res.json({ error: e.message });
   }

@@ -284,7 +284,8 @@ module.exports = {
   saveBannedChat,
   removeDynamicChat,
   getTesterEmails,
-  addTesterEmail
+  addTesterEmail,
+  db
 };
 
 module.exports.getScoutRequests = () => [];
