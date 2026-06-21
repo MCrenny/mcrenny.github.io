@@ -106,6 +106,31 @@ app.post('/api/tv-log', (req, res) => {
   res.sendStatus(200);
 });
 
+app.get('/api/admin/stats', (req, res) => {
+  try {
+    const dbase = require('./db.js');
+    const stmt = dbase.db.prepare("SELECT * FROM keys"); // assuming db is exported, wait, db is not exported. Let's just create a new connection to database.sqlite
+    const Database = require('better-sqlite3');
+    const path = require('path');
+    const dbPath = path.join(__dirname, 'database.sqlite');
+    const tempDb = new Database(dbPath, { readonly: true });
+    
+    const keys = tempDb.prepare("SELECT * FROM keys").all();
+    const now = Date.now();
+    let active = 0;
+    let bound = 0;
+    keys.forEach(k => {
+      if (!k.expiresAt || k.expiresAt > now) active++;
+      if (k.userId) bound++;
+    });
+    tempDb.close();
+    
+    res.json({ total_keys: keys.length, active_keys: active, bound_to_device: bound });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 app.get('/api/partisan/status', (req, res) => {
   res.json({
     status: botStatus,
