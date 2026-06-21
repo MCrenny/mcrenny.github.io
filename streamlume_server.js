@@ -43,6 +43,9 @@ console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
 
+// Serve TV web app (Media Station X)
+app.use('/tv', express.static(path.join(__dirname, 'tv')));
+
 // Root route to serve landing page
 app.get('/', (req, res) => {
   const fs = require('fs');
