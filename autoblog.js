@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { Telegraf } from 'telegraf';
 import dotenv from 'dotenv';
+import dbModule from './db.js';
+const { getSetting, saveSetting } = dbModule;
 
 dotenv.config({ override: true });
 
@@ -22,6 +24,21 @@ export async function runAutoblog(appType) {
     return;
   }
 
+  try {
+    const lastRunStr = await getSetting('last_autoblog_run');
+    if (lastRunStr) {
+      const lastRun = parseInt(lastRunStr);
+      const timePassed = Date.now() - lastRun;
+      const hoursPassed = timePassed / (1000 * 60 * 60);
+      if (hoursPassed < 18) {
+        console.log(`[AutoBlog] Пропуск: пост уже публиковался ${hoursPassed.toFixed(1)} ч. назад (лимит 18 ч.).`);
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('[AutoBlog] Ошибка при проверке времени последнего запуска:', err.message);
+  }
+
   let prompt = '';
   let channelId = '';
 
@@ -32,9 +49,9 @@ export async function runAutoblog(appType) {
       Ты прошел через все боли кривых плейлистов, зависающих Android-приставок и зависаний по вечерам, и теперь делишься своим опытом с подписчиками.
       
       Сгенерируй пост-совет (SEO-оптимизированную мини-статью) на одну из актуальных тем:
-      - Как смотреть бесплатное ТВ на Samsung в 2026 году без флешки
-      - Топ-5 IPTV плееров для телевизоров LG
-      - Настройка Media Station X для просмотра кино
+      - Как смотреть бесплатное ТВ на Smart TV в 2026 году
+      - Топ-5 советов для комфортного просмотра кино
+      - Секреты настройки домашнего кинотеатра
       - Выбор ТВ-приставки или почему Smart TV лучше
       
       ВАЖНО: Пиши от первого лица (Я), как автор своего блога. НИКОГДА не начинай пост со слов "Привет, друзья" или "Привет всем". Начинай сразу с сути или цепляющего заголовка.
@@ -47,7 +64,7 @@ export async function runAutoblog(appType) {
 
       Требования к тексту поста (строго до 900 символов):
       1. Напиши полезную инструкцию или совет по выбранной теме.
-      2. Обязательно расскажи, что лучший способ смотреть кино на Samsung и LG — это поставить бесплатную оболочку Media Station X, в которой за минуту запускается плеер "StreamLume" без всяких флешек и сложных настроек.
+      2. Обязательно расскажи, что лучший способ смотреть кино — это плеер "StreamLume", который можно легко установить на любой Smart TV или Android-приставку без сложных настроек.
       3. Кратко упомяни, что StreamLume тянет 4K без зависаний и имеет крутой интерфейс.
       Стиль: Авторский, искренний, полезный, с форматированием (эмодзи и HTML теги <b> и <i>). Категорически запрещено использовать Markdown (звездочки **).
       
@@ -105,6 +122,7 @@ export async function runAutoblog(appType) {
     }
     
     console.log(`[AutoBlog] Успех! Статья для ${appType} опубликована.`);
+    await saveSetting('last_autoblog_run', Date.now().toString());
   } catch (error) {
     if (error.message && error.message.includes('503')) {
       console.log('[AutoBlog] ИИ-модель временно недоступна (Gemini 503). Запрос отложен.');

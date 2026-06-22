@@ -1,7 +1,7 @@
 const { google } = require('googleapis');
 const { GoogleGenAI } = require('@google/genai');
 const dotenv = require('dotenv');
-const { isYoutubeCommentProcessed, markYoutubeCommentProcessed } = require('./db.js');
+const { isYoutubeCommentProcessed, markYoutubeCommentProcessed, getSetting, saveSetting } = require('./db.js');
 
 dotenv.config({ override: true });
 
@@ -10,6 +10,21 @@ const proxyManager = require('./proxy_manager.js');
 
 async function runYouTubeBot(appType) {
   console.log(`[YouTubeBot] Запуск комментирования для: ${appType}`);
+
+  try {
+    const lastRunStr = await getSetting('last_youtubebot_run');
+    if (lastRunStr) {
+      const lastRun = parseInt(lastRunStr);
+      const timePassed = Date.now() - lastRun;
+      const hoursPassed = timePassed / (1000 * 60 * 60);
+      if (hoursPassed < 3) {
+        console.log(`[YouTubeBot] Пропуск: комментарии проверялись ${hoursPassed.toFixed(1)} ч. назад (лимит 3 ч.).`);
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('[YouTubeBot] Ошибка при проверке времени последнего запуска:', err.message);
+  }
 
   const clientId = (process.env.YOUTUBE_CLIENT_ID || '').trim();
   const clientSecret = (process.env.YOUTUBE_CLIENT_SECRET || '').trim();
@@ -168,6 +183,7 @@ async function runYouTubeBot(appType) {
       }
 
       console.log(`[YouTubeBot] Цикл комментирования завершен. Ответов оставлено: ${commentsPosted}`);
+      await saveSetting('last_youtubebot_run', Date.now().toString());
       break;
 
     } catch (error) {

@@ -17,13 +17,11 @@ app.use(express.urlencoded({ extended: true }));
 
 // Краш сервера при фатальных ошибках (например, отвал сессии Telegram) для авто-рестарта в Amvera
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT EXCEPTION! Shutting down...', err);
-  process.exit(1);
+  console.error('UNCAUGHT EXCEPTION!', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('UNHANDLED REJECTION! Shutting down...', reason);
-  process.exit(1);
+  console.error('UNHANDLED REJECTION!', reason);
 });
 
 const PORT = process.env.PORT || 80;
@@ -39,50 +37,31 @@ console.log(`[StreamLume] FK_MERCHANT_ID = ${process.env.FK_MERCHANT_ID ? proces
 console.log(`[StreamLume] FK_SECRET_1 = ${process.env.FK_SECRET_1 ? 'LOADED (len: ' + process.env.FK_SECRET_1.length + ', preview: ' + process.env.FK_SECRET_1.substring(0, 2) + '...' + process.env.FK_SECRET_1.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len: ' + process.env.FK_SECRET_2.length + ', preview: ' + process.env.FK_SECRET_2.substring(0, 2) + '...' + process.env.FK_SECRET_2.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 
-// Root route to serve landing page OR TV app based on query param
-app.get('/', (req, res, next) => {
-  if (req.query.msx === '1' || req.query.tv === '1') {
-    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
-  }
-  // Otherwise, let express.static handle it (or fallback to the code below)
-  next();
-});
-
-// Serve TV web app (Media Station X) static files
-const tvStaticOptions = {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.json') || path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
-  }
-};
-app.use('/tv', express.static(path.join(__dirname, 'tv'), tvStaticOptions));
-app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
-app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
-
-// Intercept root for MSX devices
-app.get('/', (req, res, next) => {
-  if (req.query.msx === '1') {
-    res.sendFile(path.join(__dirname, 'tv', 'index.html'));
-  } else {
-    next();
-  }
-});
-
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
 
-// Serve TV web app (Media Station X) static files (fallback)
-app.use('/tv', express.static(path.join(__dirname, 'tv'), tvStaticOptions));
+app.use('/tv', express.static(path.join(__dirname, 'tv')));
 app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
 app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
 
-// MSX direct domain support (without slashes)
-app.get(['/start.json', '/msx/start.json'], (req, res) => {
-  res.sendFile(path.join(__dirname, 'tv', 'start.json'));
+// Serve MSX Menu Object (acts as Start Object too)
+app.get(['/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/start.json'], (req, res) => {
+    res.json({
+        "name": "StreamLume",
+        "version": "1.0",
+        "type": "list",
+        "headline": "StreamLume Launcher",
+        "ready": {
+            "action": "link:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
+        },
+        "menu": [
+            {
+                "label": "ЗАПУСТИТЬ ПРИЛОЖЕНИЕ",
+                "action": "link:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
+            }
+        ]
+    });
 });
 
 // Fallback for Root route if static files aren't found
@@ -97,7 +76,9 @@ app.get('/', (req, res) => {
   
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
-      return res.sendFile(p);
+      return res.sendFile(p, (err) => {
+        if (err && !res.headersSent) res.status(404).send('Not found');
+      });
     }
   }
   
@@ -641,9 +622,10 @@ bot.hears('📺 Для Smart TV (Samsung/LG)', (ctx) => {
     '1. Откройте магазин приложений на вашем телевизоре (Smart Hub / Content Store).\n' +
     '2. Найдите и установите бесплатное приложение *Media Station X*.\n' +
     '3. Запустите его, зайдите в **Settings** (Настройки) ➡️ **Start Parameter** (Стартовый параметр) ➡️ **Setup**.\n' +
-    '4. Введите короткую ссылку: `https://clck.ru/3UGjqa` и сохраните.\n' +
-    '5. Нажмите "Yes" (Да) для подтверждения перезапуска.\n\n' +
-    'Готово! StreamLume запустится на вашем экране. Просто введите ваш ключ из этого бота.', { parse_mode: 'Markdown' });
+    '4. Включите **Security Lock** (замочек должен быть закрыт) для работы по защищенному протоколу HTTPS.\n' +
+    '5. Введите адрес нашего сервера: `iptvpay-svmorozoww.amvera.io` и сохраните.\n' +
+    '6. Нажмите "Yes" (Да) для подтверждения перезапуска.\n\n' +
+    'Готово! StreamLume запустится на вашем экране автоматически. Просто введите ваш ключ из этого бота.', { parse_mode: 'Markdown' });
 });
 
 // Временный обработчик для получения file_id (скинь боту APK, чтобы получить код)

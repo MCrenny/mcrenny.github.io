@@ -261,8 +261,22 @@ const addTesterEmail = (email) => {
   return Promise.resolve();
 };
 
+const getSetting = (key) => {
+  const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+  const row = stmt.get(key);
+  return Promise.resolve(row ? row.value : null);
+};
+
+const saveSetting = (key, value) => {
+  const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)');
+  stmt.run(key, value.toString());
+  return Promise.resolve();
+};
+
 module.exports = {
   db,
+  getSetting,
+  saveSetting,
   generateKey,
   verifyKey,
   getKeyByTelegramId,
