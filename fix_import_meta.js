@@ -80,6 +80,7 @@ function processDir(dir) {
         };
       }
     </script>
+    <script type="text/javascript" src="https://msx.benzac.de/js/tvx-plugin.min.js"></script>
     <script src="https://unpkg.com/resize-observer-polyfill@1.5.1/dist/ResizeObserver.global.js"></script>`;
         
         // Clean up any old polyfill script tags if they exist to avoid duplicates
