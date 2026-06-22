@@ -45,8 +45,17 @@ app.use('/tv', express.static(path.join(__dirname, 'tv')));
 app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
 app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
 
-// Serve MSX Menu Object (acts as Start Object too)
-app.get(['/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/start.json'], (req, res) => {
+// Serve MSX Start Object (used by MSX client to initialize)
+app.get('/msx/start.json', (req, res) => {
+    res.json({
+        "name": "StreamLume",
+        "version": "1.0",
+        "parameter": "menu:https://iptvpay-svmorozoww.amvera.io/msx/menu.json"
+    });
+});
+
+// Serve MSX Menu Object
+app.get(['/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json'], (req, res) => {
     res.json({
         "name": "StreamLume",
         "version": "1.0",
