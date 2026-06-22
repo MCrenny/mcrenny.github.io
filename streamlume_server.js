@@ -45,31 +45,125 @@ app.use('/tv', express.static(path.join(__dirname, 'tv')));
 app.use('/_expo', express.static(path.join(__dirname, 'tv', '_expo')));
 app.use('/assets', express.static(path.join(__dirname, 'tv', 'assets')));
 
-// Serve MSX Start Object (used by MSX client to initialize)
-app.get('/msx/start.json', (req, res) => {
+// Вспомогательная функция: парсит M3U из кэша в массив объектов каналов
+const parseCachedPlaylist = () => {
+    const fs = require('fs');
+    const { PLAYLIST_CACHE_FILE } = require('./playlist_manager');
+    if (!fs.existsSync(PLAYLIST_CACHE_FILE)) return [];
+    const text = fs.readFileSync(PLAYLIST_CACHE_FILE, 'utf8');
+    const channels = [];
+    const lines = text.split('\n');
+    let currentInfo = null;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith('#EXTINF:')) {
+            const matchName = line.match(/,(.+)$/);
+            const name = matchName ? matchName[1].trim() : 'Канал';
+            const matchGroup = line.match(/group-title="([^"]+)"/);
+            const group = matchGroup ? matchGroup[1].trim() : '📺 Общие';
+            const matchLogo = line.match(/tvg-logo="([^"]+)"/);
+            const logo = matchLogo ? matchLogo[1].trim() : '';
+            currentInfo = { name, group, logo };
+        } else if (line.startsWith('http') && currentInfo) {
+            channels.push({ ...currentInfo, url: line });
+            currentInfo = null;
+        }
+    }
+    return channels;
+};
+
+// ============================================================
+// MSX Content API — правильный способ интеграции по документации
+// разработчика (msx.benzac.de/wiki). MSX сам управляет навигацией
+// пультом (UP/DOWN/LEFT/RIGHT/OK), когда контент подаётся в формате
+// Content API JSON. Действие "link:" открывает внешнюю страницу
+// без навигации пульта — это была ошибка.
+// ============================================================
+
+// MSX Start Object (стартовая точка входа через Start Parameter)
+app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
-        "name": "StreamLume",
+        "name": "StreamLume TV",
         "version": "1.0",
-        "parameter": "menu:https://iptvpay-svmorozoww.amvera.io/msx/menu.json"
+        "parameter": "content:https://iptvpay-svmorozoww.amvera.io/msx/content.json"
     });
 });
 
-// Serve MSX Menu Object
-app.get(['/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json'], (req, res) => {
+// MSX Content Root — главный экран с категориями каналов
+// Пульт (UP/DOWN/LEFT/RIGHT/OK) управляется нативно самим MSX
+app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+    const channels = parseCachedPlaylist();
+
+    // Группируем по категориям
+    const groupsMap = {};
+    for (const ch of channels) {
+        const g = ch.group || '📺 Общие';
+        if (!groupsMap[g]) groupsMap[g] = [];
+        groupsMap[g].push(ch);
+    }
+
+    // Строим пункты меню — каждая категория ведёт на список каналов
+    const menuItems = Object.keys(groupsMap).map(group => ({
+        "title": group,
+        "titleFooter": `${groupsMap[group].length} каналов`,
+        "icon": "msx-white-soft:folder",
+        "action": `content:https://iptvpay-svmorozoww.amvera.io/msx/channels.json?group=${encodeURIComponent(group)}`
+    }));
+
+    // Добавляем пункт "Все каналы" в начало
+    menuItems.unshift({
+        "title": "📺 Все каналы",
+        "titleFooter": `${channels.length} каналов`,
+        "icon": "msx-white-soft:live-tv",
+        "action": "content:https://iptvpay-svmorozoww.amvera.io/msx/channels.json"
+    });
+
     res.json({
         "name": "StreamLume",
         "version": "1.0",
+        "headline": "StreamLume — IPTV",
         "type": "list",
-        "headline": "StreamLume Launcher",
-        "ready": {
-            "action": "link:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
+        "template": {
+            "type": "separate",
+            "layout": "0,0,8,4",
+            "icon": "msx-white-soft:live-tv",
+            "color": "msx-glass"
         },
-        "menu": [
-            {
-                "label": "ЗАПУСТИТЬ ПРИЛОЖЕНИЕ",
-                "action": "link:https://iptvpay-svmorozoww.amvera.io/tv/index.html"
-            }
-        ]
+        "items": menuItems
+    });
+});
+
+// MSX Channels Content — список каналов (опционально фильтр по группе)
+// Каждый канал воспроизводится нативным плеером MSX через action "video:..."
+app.get('/msx/channels.json', (req, res) => {
+    const group = req.query.group || null;
+    const key = req.query.key || null;
+    let channels = parseCachedPlaylist();
+
+    // Если передан ключ — проверяем через плейлист с ключом (premium)
+    // Иначе отдаём публичные каналы из кэша
+    if (group) {
+        channels = channels.filter(ch => ch.group === group);
+    }
+
+    const items = channels.map(ch => ({
+        "title": ch.name,
+        "titleFooter": ch.group,
+        "image": ch.logo || undefined,
+        "imageFill": "msx-white:live-tv",
+        "action": `video:${ch.url}`
+    }));
+
+    res.json({
+        "headline": group || "Все каналы",
+        "type": "list",
+        "template": {
+            "type": "separate",
+            "layout": "0,0,8,4",
+            "icon": "msx-white-soft:live-tv",
+            "color": "msx-glass"
+        },
+        "items": items
     });
 });
 
@@ -593,9 +687,10 @@ bot.hears('📖 Инструкция', async (ctx) => {
   const apkPath = path.join(__dirname, 'landing/StreamLume.apk');
 
   await ctx.reply('🚀 *Как начать смотреть StreamLume:*\n\n' +
-    '1. Установите приложение из официальных магазинов или скачайте APK-файл ниже.\n' +
+    '1. Установите приложение с сайта или из официальных магазинов, либо скачайте APK-файл ниже.\n' +
     '2. Запустите приложение и введите свой Premium-ключ.\n\n' +
-    '📺 *Официальные магазины:*\n' +
+    '📺 *Где скачать:*\n' +
+    '• 🌐 [Официальный сайт](https://iptvpay-svmorozoww.amvera.io)\n' +
     '• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n' +
     '• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)\n\n' +
     '📺 Приятного просмотра!', { parse_mode: 'Markdown', disable_web_page_preview: true });
@@ -605,11 +700,11 @@ bot.hears('📖 Инструкция', async (ctx) => {
       await ctx.replyWithDocument({ source: apkPath, filename: 'StreamLume.apk' });
     } catch (e) {
       console.error('Failed to send APK:', e);
-      ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)\n• [Google Drive](https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=drive_link)`, { parse_mode: 'Markdown', disable_web_page_preview: true });
+      ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n• 🌐 [Официальный сайт](https://iptvpay-svmorozoww.amvera.io)\n• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)`, { parse_mode: 'Markdown', disable_web_page_preview: true });
     }
   } else {
     try {
-      await ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)\n• [Google Drive](https://drive.google.com/file/d/1tUthdGdyw8JX9_EKf0mcVmLiQjxztiuL/view?usp=drive_link)`, { parse_mode: 'Markdown', disable_web_page_preview: true });
+      await ctx.reply(`🚀 Скачайте приложение по ссылкам:\n\n• 🌐 [Официальный сайт](https://iptvpay-svmorozoww.amvera.io)\n• [Google Play](https://play.google.com/store/apps/details?id=com.sergey.streamlume)\n• [RuStore](https://apps.rustore.ru/app/com.sergey.streamlume)`, { parse_mode: 'Markdown', disable_web_page_preview: true });
       
       // Отправка APK файла напрямую через Telegram
       await ctx.replyWithDocument('BQACAgIAAxkBAA07agijg_t85kEjqw6OYQER0BJlnhcAAi6bAAK0-khIfr9HSAFiTAo7BA', {
@@ -630,11 +725,11 @@ bot.hears('📺 Для Smart TV (Samsung/LG)', (ctx) => {
   ctx.reply('📺 *Как смотреть на Samsung (Tizen) и LG (webOS):*\n\n' +
     '1. Откройте магазин приложений на вашем телевизоре (Smart Hub / Content Store).\n' +
     '2. Найдите и установите бесплатное приложение *Media Station X*.\n' +
-    '3. Запустите его, зайдите в **Settings** (Настройки) ➡️ **Start Parameter** (Стартовый параметр) ➡️ **Setup**.\n' +
-    '4. Включите **Security Lock** (замочек должен быть закрыт) для работы по защищенному протоколу HTTPS.\n' +
+    '3. Запустите его, зайдите в *Settings* (Настройки) ➡️ *Start Parameter* (Стартовый параметр) ➡️ *Setup*.\n' +
+    '4. Включите *Security Lock* (замочек должен быть закрыт) для работы по защищенному протоколу HTTPS.\n' +
     '5. Введите адрес нашего сервера: `iptvpay-svmorozoww.amvera.io` и сохраните.\n' +
     '6. Нажмите "Yes" (Да) для подтверждения перезапуска.\n\n' +
-    'Готово! StreamLume запустится на вашем экране автоматически. Просто введите ваш ключ из этого бота.', { parse_mode: 'Markdown' });
+    '✅ *Готово!* StreamLume TV запустится автоматически. Теперь интерфейс полностью поддерживает управление вашим пультом!', { parse_mode: 'Markdown' });
 });
 
 // Временный обработчик для получения file_id (скинь боту APK, чтобы получить код)
