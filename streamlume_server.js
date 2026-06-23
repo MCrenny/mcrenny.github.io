@@ -95,42 +95,26 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
-        "parameter": "menu:{PREFIX}{SERVER}/msx/content.json"
+        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
     });
 });
 
-// MSX Content Root — главный экран с категориями каналов
-// Пульт (UP/DOWN/LEFT/RIGHT/OK) управляется нативно самим MSX
+// MSX Content Root — Launcher для веб-версии
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const channels = parseCachedPlaylist();
-
-    // Группируем по категориям
-    const groupsMap = {};
-    for (const ch of channels) {
-        const g = ch.group || '📺 Общие';
-        if (!groupsMap[g]) groupsMap[g] = [];
-        groupsMap[g].push(ch);
-    }
-
-    // Строим пункты меню — каждая категория ведёт на список каналов
-    const menuItems = Object.keys(groupsMap).map(group => ({
-        "label": `${group} (${groupsMap[group].length})`,
-        "icon": "msx-white-soft:folder",
-        "action": `content:{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
-    }));
-
-    // Добавляем пункт "Все каналы" в начало
-    menuItems.unshift({
-        "label": `📺 Все каналы (${channels.length})`,
-        "icon": "msx-white-soft:live-tv",
-        "action": "content:{PREFIX}{SERVER}/msx/channels.json"
-    });
-
     res.json({
-        "name": "StreamLume",
+        "name": "StreamLume TV",
         "version": "1.0",
-        "headline": "StreamLume — IPTV",
-        "menu": menuItems
+        "headline": "Загрузка StreamLume...",
+        "ready": {
+            "action": "link:{PREFIX}{SERVER}/tv/index.html"
+        },
+        "menu": [
+            {
+                "label": "Запустить приложение",
+                "icon": "msx-white-soft:play",
+                "action": "link:{PREFIX}{SERVER}/tv/index.html"
+            }
+        ]
     });
 });
 
