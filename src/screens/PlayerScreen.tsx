@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, TouchableOpacity, TouchableHighlight, Pressable
 import { Video, ResizeMode } from 'expo-av';
 import { useRoute, useNavigation, useIsFocused } from '@react-navigation/native';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -112,6 +113,7 @@ export const PlayerScreen = () => {
   const { width, height } = useWindowDimensions();
   // On web (MSX), useIsFocused can misbehave — treat web as always focused
   const isFocusedNative = useIsFocused();
+  useKeepAwake(); // Prevents the screen from turning off while PlayerScreen is active
   const isScreenFocused = Platform.OS === 'web' ? true : isFocusedNative;
   const { url, title, tvgId, channel, initialFullscreen, isArchive } = route.params || {};
   const [isFullscreen, setIsFullscreen] = useState(initialFullscreen !== false);

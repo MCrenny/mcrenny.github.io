@@ -23,11 +23,43 @@
         flex: 1;
       }
     </style>
-    <script src="http://msx.benzac.de/js/tvx-plugin.min.js"></script>
+    <script src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
     <script>
       if (typeof TVXPlugin !== 'undefined') {
         TVXPlugin.initialize();
       }
+    </script>
+    <script>
+      (function() {
+        var wakeLock = null;
+        async function requestWakeLock() {
+          try {
+            if ('wakeLock' in navigator) {
+              wakeLock = await navigator.wakeLock.request('screen');
+            }
+          } catch (err) {}
+        }
+        function keepAwake() {
+          requestWakeLock();
+          try {
+            if (typeof tizen !== 'undefined' && tizen.power) {
+              tizen.power.request("SCREEN", "SCREEN_NORMAL");
+            }
+          } catch(e) {}
+          try {
+            if (typeof webOS !== 'undefined' && webOS.setWindowProperty) {
+              webOS.setWindowProperty("keepAlive", "true");
+            }
+          } catch(e) {}
+        }
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') keepAwake();
+        });
+        document.addEventListener('click', keepAwake, { once: true });
+        document.addEventListener('keydown', keepAwake, { once: true });
+        keepAwake();
+        setInterval(keepAwake, 60000);
+      })();
     </script>
   </head>
 
