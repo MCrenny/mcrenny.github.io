@@ -47,14 +47,20 @@ async function runYouTubeBot(appType) {
       'iptv samsung smart tv настройка',
       'где взять рабочие iptv плейлисты',
       'как установить media station x',
-      'media station x настройка iptv'
+      'media station x настройка iptv',
+      'что посмотреть вечером фильм',
+      'топ сериалов 2026',
+      'как обойти блокировку youtube на тв',
+      'какую приставку купить для тв',
+      'обзор android tv box',
+      'настройка тв бокса с нуля'
     ];
     botContext = `Фишки приложения "StreamLume" (премиальный IPTV-плеер, Яндекс Диск: https://disk.yandex.ru/d/PLgFGtCwF8yCjg):
     • Избранное — собираешь свой пакет из 5000+ каналов из 8 разных источников
-    • Для ТВ Samsung/LG идеальный запуск без флешек через Media Station X
-    • Не нужно париться с настройкой — всё работает сразу
+    • Теперь наш плеер нативно работает на любых Smart TV (Samsung, LG) через бесплатное приложение Media Station X
+    • Не нужно париться с настройкой — все подробные инструкции по установке есть в Telegram-боте @StreameLumeBot
     • Смена соотношения сторон, HD-качество, EPG-программа
-    • 3 дня бесплатно — через Telegram-бот @StreameLumeBot`;
+    • 3 дня бесплатно — также забирать через Telegram-бот @StreameLumeBot`;
   } else {
     return;
   }

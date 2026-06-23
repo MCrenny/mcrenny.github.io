@@ -85,7 +85,7 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
-        "parameter": "content:https://iptvpay-svmorozoww.amvera.io/msx/content.json"
+        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
     });
 });
 
@@ -107,7 +107,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "title": group,
         "titleFooter": `${groupsMap[group].length} каналов`,
         "icon": "msx-white-soft:folder",
-        "action": `content:https://iptvpay-svmorozoww.amvera.io/msx/channels.json?group=${encodeURIComponent(group)}`
+        "action": `content:{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
     }));
 
     // Добавляем пункт "Все каналы" в начало
@@ -115,7 +115,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "title": "📺 Все каналы",
         "titleFooter": `${channels.length} каналов`,
         "icon": "msx-white-soft:live-tv",
-        "action": "content:https://iptvpay-svmorozoww.amvera.io/msx/channels.json"
+        "action": "content:{PREFIX}{SERVER}/msx/channels.json"
     });
 
     res.json({
@@ -123,12 +123,6 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "version": "1.0",
         "headline": "StreamLume — IPTV",
         "type": "list",
-        "template": {
-            "type": "separate",
-            "layout": "0,0,8,4",
-            "icon": "msx-white-soft:live-tv",
-            "color": "msx-glass"
-        },
         "items": menuItems
     });
 });
@@ -157,12 +151,6 @@ app.get('/msx/channels.json', (req, res) => {
     res.json({
         "headline": group || "Все каналы",
         "type": "list",
-        "template": {
-            "type": "separate",
-            "layout": "0,0,8,4",
-            "icon": "msx-white-soft:live-tv",
-            "color": "msx-glass"
-        },
         "items": items
     });
 });
@@ -333,14 +321,15 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
     return res.status(400).send('Bad Request');
   }
 
-  if (!FK_SECRET_2) {
+  const fk_secret_2 = process.env.FK_SECRET_2 || '$zi52]@9I!U70MH';
+  if (!fk_secret_2) {
     console.error('[FreeKassa Webhook] Критическая ошибка: FK_SECRET_2 не задан в .env! Платеж отклонен в целях безопасности.');
     return res.status(500).send('Webhook unconfigured');
   }
 
   const crypto = require('crypto');
   const checkSign = crypto.createHash('md5')
-    .update(`${merchantId}:${amount}:${FK_SECRET_2}:${merchantOrderId}`)
+    .update(`${merchantId}:${amount}:${fk_secret_2}:${merchantOrderId}`)
     .digest('hex');
 
   if (sign.toLowerCase() !== checkSign.toLowerCase()) {
@@ -349,12 +338,17 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
   }
 
   try {
+    const [telegramId, duration, expectedAmount] = merchantOrderId.split('_');
+    if (expectedAmount && parseFloat(amount) < parseFloat(expectedAmount)) {
+       console.error(`[FreeKassa Webhook] Invalid amount. Expected >= ${expectedAmount}, got ${amount}`);
+       return res.status(400).send('Invalid amount');
+    }
+
     if (await isOrderProcessed(merchantOrderId)) {
       console.log(`[FreeKassa Webhook] Order ${merchantOrderId} already processed.`);
       return res.send('YES');
     }
 
-    const [telegramId, duration] = merchantOrderId.split('_');
     const newKey = await generateKey(telegramId, parseInt(duration));
     await markOrderProcessed(merchantOrderId);
 
@@ -392,8 +386,14 @@ const handleYooMoneyWebhook = async (req, res) => {
     return res.status(400).send('Bad Request');
   }
 
+  const { unaccepted } = req.body;
+  if (codepro === 'true' || unaccepted === 'true') {
+    console.log('[YooMoney Webhook] Payment is codepro or unaccepted. Ignoring.');
+    return res.send('OK');
+  }
+
   const crypto = require('crypto');
-  const secret = process.env.YOOMONEY_NOTIFICATION_SECRET || '';
+  const secret = process.env.YOOMONEY_NOTIFICATION_SECRET || 'F/DyVx3JaokGmWxELRq+fBGY';
   
   if (!secret) {
     console.error('[YooMoney Webhook] Критическая ошибка: YOOMONEY_NOTIFICATION_SECRET не задан в .env! Платеж отклонен в целях безопасности.');
@@ -410,12 +410,17 @@ const handleYooMoneyWebhook = async (req, res) => {
   }
 
   try {
+    const [telegramId, duration, expectedAmount] = label.split('_');
+    if (expectedAmount && parseFloat(amount) < parseFloat(expectedAmount)) {
+       console.error(`[YooMoney Webhook] Invalid amount. Expected >= ${expectedAmount}, got ${amount}`);
+       return res.status(400).send('Invalid amount');
+    }
+
     if (await isOrderProcessed(label)) {
       console.log(`[YooMoney Webhook] Order ${label} already processed.`);
       return res.send('OK');
     }
 
-    const [telegramId, duration] = label.split('_');
     if (!telegramId || !duration) {
       console.error('[YooMoney Webhook] Invalid label format:', label);
       return res.status(400).send('Invalid label');
@@ -452,15 +457,56 @@ const bot = new Telegraf(BOT_TOKEN);
 const mainKeyboard = Markup.keyboard([
   ['💎 Получить доступ', '🎁 Бесплатный доступ'],
   ['🔑 Мой ключ', '📖 Инструкция'],
-  ['📺 Для Smart TV (Samsung/LG)', '🆘 Поддержка']
+  ['📺 Для Smart TV (Samsung/LG)', '🆘 Поддержка'],
+  ['🤝 Пригласить друга']
 ]).resize();
 
-bot.start((ctx) => {
+bot.start(async (ctx) => {
+  const payload = ctx.payload;
+  
+  if (payload && payload.startsWith('ref_')) {
+    const referrerId = payload.replace('ref_', '');
+    if (referrerId !== String(ctx.from.id)) {
+      const alreadyUsed = await hasUsedTrial(String(ctx.from.id));
+      if (!alreadyUsed) {
+        // Выдаем триал приглашенному
+        const freeKey = await generateKey(String(ctx.from.id), 7, true);
+        ctx.reply(`✅ Вы перешли по приглашению друга!\n\nВам начислено 7 дней премиум-доступа (вместо 3).\n\nКлюч: \`${freeKey}\``, { parse_mode: 'Markdown' });
+        
+        // Начисляем бонус пригласившему
+        try {
+          const referrerKeyRow = db.prepare("SELECT key, expires_at FROM keys WHERE telegram_id = ? AND is_trial = 0 ORDER BY id DESC LIMIT 1").get(referrerId);
+          if (referrerKeyRow) {
+             const newDate = new Date(new Date(referrerKeyRow.expires_at).getTime() + 7 * 24 * 60 * 60 * 1000);
+             db.prepare("UPDATE keys SET expires_at = ? WHERE key = ?").run(newDate.toISOString(), referrerKeyRow.key);
+             bot.telegram.sendMessage(referrerId, `🎉 По вашей ссылке зарегистрировался друг!\n\nК вашей основной подписке добавлено +7 дней бесплатно!`);
+          } else {
+             // Если у друга только триал, продлеваем триал
+             const trialKeyRow = db.prepare("SELECT key, expires_at FROM keys WHERE telegram_id = ? AND is_trial = 1 ORDER BY id DESC LIMIT 1").get(referrerId);
+             if (trialKeyRow) {
+                const newDate = new Date(new Date(trialKeyRow.expires_at).getTime() + 7 * 24 * 60 * 60 * 1000);
+                db.prepare("UPDATE keys SET expires_at = ? WHERE key = ?").run(newDate.toISOString(), trialKeyRow.key);
+                bot.telegram.sendMessage(referrerId, `🎉 По вашей ссылке зарегистрировался друг!\n\nК вашему тестовому периоду добавлено +7 дней бесплатно!`);
+             }
+          }
+        } catch (e) {
+          console.error('[Ref Error]', e);
+        }
+        return; // Завершаем старт, чтобы не дублировать приветствие
+      }
+    }
+  }
+
   ctx.reply(`Привет, ${ctx.from.first_name}! 👋\n\nДобро пожаловать в StreamLume — премиальное IPTV нового поколения.\n\nИспользуй меню ниже, чтобы получить доступ к сотням каналов в HD качестве.`, mainKeyboard);
   
   if (ctx.from.id === ADMIN_ID) {
     ctx.reply('👑 О, хозяин! Тебе доступна команда /admin');
   }
+});
+
+bot.hears('🤝 Пригласить друга', (ctx) => {
+  const refLink = `https://t.me/${ctx.botInfo.username}?start=ref_${ctx.from.id}`;
+  ctx.reply(`🤝 *Реферальная программа StreamLume*\n\nОтправь эту ссылку другу:\n\`${refLink}\`\n\nКогда друг впервые запустит бота по твоей ссылке, он получит увеличенный пробный период (7 дней вместо 3), а ты автоматически получишь **+7 дней** к своей подписке!`, { parse_mode: 'Markdown' });
 });
 
 // --- Admin Panel ---
@@ -738,7 +784,7 @@ bot.hears('📺 Для Smart TV (Samsung/LG)', (ctx) => {
 // Start servers
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
-  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.7 ACTIVE ---`);
+  console.log(`--- DEPLOYMENT VERIFICATION: Version 1.0.8 ACTIVE ---`);
 
   // Background initialization to prevent blocking the thread
   setTimeout(async () => {
@@ -848,6 +894,35 @@ setTimeout(() => {
   runAutoblog('iptv');
   runYouTubeBot('iptv');
 }, 5 * 60 * 1000);
+
+// --- Фоновая задача "Дожим" (Follow-up) ---
+setInterval(() => {
+  console.log('[Follow-Up] Проверка истекших триалов...');
+  try {
+    const expiredTrials = db.prepare(`
+      SELECT key, telegram_id FROM keys 
+      WHERE is_trial = 1 
+        AND followup_sent = 0 
+        AND expires_at < datetime('now') 
+        AND expires_at > datetime('now', '-2 days')
+        AND telegram_id IS NOT NULL
+    `).all();
+
+    for (const trial of expiredTrials) {
+      if (trial.telegram_id) {
+        bot.telegram.sendMessage(trial.telegram_id, "Привет! Твой бесплатный период в StreamLume закончился. Надеюсь, тебе понравилось качество трансляций! 🍿 Если хочешь продолжить смотреть 5000+ каналов в HD, лови подписку всего от 49 рублей в месяц. Нажми '💎 Получить доступ' в меню.")
+          .then(() => {
+            db.prepare('UPDATE keys SET followup_sent = 1 WHERE key = ?').run(trial.key);
+            console.log(`[Follow-Up] Сообщение отправлено пользователю ${trial.telegram_id}`);
+          })
+          .catch(err => console.error(`[Follow-Up] Ошибка отправки ${trial.telegram_id}:`, err.message));
+      }
+    }
+  } catch (err) {
+    console.error('[Follow-Up] Ошибка базы данных:', err.message);
+  }
+}, 60 * 60 * 1000); // Раз в час
+
 
 setInterval(() => {
   runAutoblog('iptv');

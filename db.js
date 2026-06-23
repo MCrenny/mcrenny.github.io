@@ -91,6 +91,7 @@ db.exec(`
 try { db.exec("ALTER TABLE keys ADD COLUMN telegram_id TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE keys ADD COLUMN expires_at DATETIME"); } catch (e) {}
 try { db.exec("ALTER TABLE keys ADD COLUMN is_trial INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE keys ADD COLUMN followup_sent INTEGER DEFAULT 0"); } catch (e) {}
 
 // Migration: Сокращаем существующие 100-летние триал-ключи до 3 дней
 try {
