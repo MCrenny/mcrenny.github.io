@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
   
   // 1. Обычные плитки (5 колонок)
   channelCardNormal: {
-    flex: 1,
+    width: '18%',
     aspectRatio: 1.3,
     backgroundColor: '#1c1c1e',
     borderRadius: 12,
@@ -1162,7 +1162,7 @@ const styles = StyleSheet.create({
 
   // 2. Маленькие плитки (7 колонок)
   channelCardSmall: {
-    flex: 1,
+    width: '12%',
     aspectRatio: 1.4,
     backgroundColor: '#1c1c1e',
     borderRadius: 8,
@@ -1183,7 +1183,7 @@ const styles = StyleSheet.create({
 
   // 3. Большие плитки (3 колонки)
   channelCardLarge: {
-    flex: 1,
+    width: '30%',
     aspectRatio: 1.2,
     backgroundColor: '#1c1c1e',
     borderRadius: 16,
@@ -1204,7 +1204,7 @@ const styles = StyleSheet.create({
 
   // 4. Классический список (одна колонка во всю ширину)
   channelCardList: {
-    flex: 1,
+    width: '98%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1c1c1e',
