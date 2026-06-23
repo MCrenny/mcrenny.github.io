@@ -61,6 +61,19 @@
         setInterval(keepAwake, 60000);
       })();
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
+    <script>
+      (function() {
+        var noSleep = new NoSleep();
+        function enableNoSleep() {
+          noSleep.enable();
+          document.removeEventListener('click', enableNoSleep, false);
+          document.removeEventListener('keydown', enableNoSleep, false);
+        }
+        document.addEventListener('click', enableNoSleep, false);
+        document.addEventListener('keydown', enableNoSleep, false);
+      })();
+    </script>
   </head>
 
   <body>
