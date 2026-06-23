@@ -101,18 +101,19 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 
 // MSX Content Root — Launcher для веб-версии
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+    const hostUrl = `https://${req.get('host')}`;
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
         "headline": "Загрузка StreamLume...",
         "ready": {
-            "action": "link:{PREFIX}{SERVER}/tv/index.html"
+            "action": `link:${hostUrl}/tv/index.html`
         },
         "menu": [
             {
                 "label": "Запустить приложение",
                 "icon": "msx-white-soft:play",
-                "action": "link:{PREFIX}{SERVER}/tv/index.html"
+                "action": `link:${hostUrl}/tv/index.html`
             }
         ]
     });
