@@ -31,47 +31,14 @@
     </script>
     <script>
       (function() {
-        var wakeLock = null;
-        async function requestWakeLock() {
-          try {
-            if ('wakeLock' in navigator) {
-              wakeLock = await navigator.wakeLock.request('screen');
-            }
-          } catch (err) {}
-        }
         function keepAwake() {
-          requestWakeLock();
-          try {
-            if (typeof tizen !== 'undefined' && tizen.power) {
-              tizen.power.request("SCREEN", "SCREEN_NORMAL");
-            }
-          } catch(e) {}
-          try {
-            if (typeof webOS !== 'undefined' && webOS.setWindowProperty) {
-              webOS.setWindowProperty("keepAlive", "true");
-            }
-          } catch(e) {}
+          if (typeof TVXPlugin !== 'undefined' && TVXPlugin.executeAction) {
+            TVXPlugin.executeAction('awake');
+          }
         }
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') keepAwake();
-        });
-        document.addEventListener('click', keepAwake, { once: true });
-        document.addEventListener('keydown', keepAwake, { once: true });
-        keepAwake();
-        setInterval(keepAwake, 60000);
-      })();
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
-    <script>
-      (function() {
-        var noSleep = new NoSleep();
-        function enableNoSleep() {
-          noSleep.enable();
-          document.removeEventListener('click', enableNoSleep, false);
-          document.removeEventListener('keydown', enableNoSleep, false);
-        }
-        document.addEventListener('click', enableNoSleep, false);
-        document.addEventListener('keydown', enableNoSleep, false);
+        document.addEventListener('click', keepAwake);
+        document.addEventListener('keydown', keepAwake);
+        setInterval(keepAwake, 60000); // Send awake command every 60 seconds
       })();
     </script>
   </head>
