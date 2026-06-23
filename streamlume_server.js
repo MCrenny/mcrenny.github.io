@@ -114,16 +114,14 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
 
     // Строим пункты меню — каждая категория ведёт на список каналов
     const menuItems = Object.keys(groupsMap).map(group => ({
-        "title": group,
-        "titleFooter": `${groupsMap[group].length} каналов`,
+        "label": `${group} (${groupsMap[group].length})`,
         "icon": "msx-white-soft:folder",
         "action": `content:{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
     }));
 
     // Добавляем пункт "Все каналы" в начало
     menuItems.unshift({
-        "title": "📺 Все каналы",
-        "titleFooter": `${channels.length} каналов`,
+        "label": `📺 Все каналы (${channels.length})`,
         "icon": "msx-white-soft:live-tv",
         "action": "content:{PREFIX}{SERVER}/msx/channels.json"
     });
@@ -132,8 +130,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "name": "StreamLume",
         "version": "1.0",
         "headline": "StreamLume — IPTV",
-        "type": "list",
-        "items": menuItems
+        "menu": menuItems
     });
 });
 
