@@ -107,13 +107,13 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "version": "1.0",
         "headline": "Загрузка StreamLume...",
         "ready": {
-            "action": `interaction:${hostUrl}/tv/index.html|tvx-plugin.min.js`
+            "action": `link:${hostUrl}/tv/index.html`
         },
         "menu": [
             {
                 "label": "Запустить приложение",
                 "icon": "msx-white-soft:play",
-                "action": `interaction:${hostUrl}/tv/index.html|tvx-plugin.min.js`
+                "action": `link:${hostUrl}/tv/index.html`
             }
         ]
     });

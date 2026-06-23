@@ -225,10 +225,21 @@ export const PlayerScreen = () => {
     };
 
     let backHandler: any = null;
+    let webKeyDownHandler: any = null;
 
     if (Platform.OS !== 'web') {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
       backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    } else {
+      webKeyDownHandler = (e: any) => {
+        // 8 = Backspace, 27 = Escape, 461 = LG Back, 10009 = Tizen Return
+        if (e.keyCode === 8 || e.keyCode === 27 || e.keyCode === 461 || e.keyCode === 10009) {
+          e.preventDefault();
+          e.stopPropagation();
+          backAction();
+        }
+      };
+      window.addEventListener('keydown', webKeyDownHandler, { capture: true });
     }
 
     resetTimer();
@@ -236,6 +247,10 @@ export const PlayerScreen = () => {
     return () => {
       if (Platform.OS !== 'web') {
         ScreenOrientation.unlockAsync();
+      } else {
+        if (webKeyDownHandler) {
+          window.removeEventListener('keydown', webKeyDownHandler, { capture: true });
+        }
       }
       if (timerRef.current) clearTimeout(timerRef.current);
       if (backHandler) backHandler.remove();
