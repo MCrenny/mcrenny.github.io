@@ -81,6 +81,16 @@ const parseCachedPlaylist = () => {
 // ============================================================
 
 // MSX Start Object (стартовая точка входа через Start Parameter)
+app.use((req, res, next) => {
+    if (req.path.includes('.json') || req.path.includes('/msx')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
+
+// MSX Start Object
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
