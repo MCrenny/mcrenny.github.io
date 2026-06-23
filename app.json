@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "StreamLume",
+    "slug": "streamlume",
+    "sdkVersion": "54.0.0",
+    "version": "1.0.11",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "versionCode": 12,
+      "minSdkVersion": 26,
+      "package": "com.sergey.streamlume",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#000000"
+      },
+      "usesCleartextTraffic": true,
+      "intentFilters": [
+        {
+          "action": "MAIN",
+          "category": [
+            "android.intent.category.LAUNCHER",
+            "android.intent.category.LEANBACK_LAUNCHER"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "76d3e12e-5f5d-4191-9653-10e8b4d14c56"
+      }
+    },
+    "plugins": []
+  }
+}
