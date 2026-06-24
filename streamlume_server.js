@@ -103,7 +103,8 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
         "name": "StreamLume",
         "version": "1.0",
         "description": "Премиальное мобильное IPTV-приложение",
-        "parameter": `content:${hostUrl}/menu.json?v=${Date.now()}`
+        "type": "plugin",
+        "parameter": `${hostUrl}/tv/index.html`
     });
 });
 
