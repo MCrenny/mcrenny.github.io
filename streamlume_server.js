@@ -101,25 +101,18 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     const linkProtocol = isIp ? 'http' : 'https';
     const linkUrl = `${linkProtocol}://${host}`;
     
-    // ВАЖНО: Мы используем "type": "pages" и экшен "execute:"!
-    // Именно "execute:" заставлял ваш телевизор открыть React Native приложение 3 дня назад, 
-    // потому что он вызывает системный браузер ТВ, обходя ограничения встроенного iframe MSX!
+    // Загружаем React Native Web как полноценный плагин через interaction:load, 
+    // что соответствует инструкции MSX разработчика для интерактивных приложений.
+    // Это решает проблему с навигацией пульта и полноэкранным режимом!
     res.json({
         "type": "pages",
-        "headline": "StreamLume",
+        "color": "transparent",
         "ready": {
-            "action": `execute:${linkUrl}/?msx=1`
+            "action": `interaction:load:${linkUrl}/tv/index.html`
         },
         "pages": [
             {
-                "items": [
-                    {
-                        "type": "button",
-                        "layout": "0,0,12,2",
-                        "title": "Запустить StreamLume",
-                        "action": `execute:${linkUrl}/tv/index.html`
-                    }
-                ]
+                "items": []
             }
         ]
     });
@@ -147,6 +140,10 @@ app.get('/msx/channels.json', (req, res) => {
 
 // Fallback for Root route if static files aren't found
 app.get('/', (req, res) => {
+  if (req.query.msx === '1' || req.query.tv === '1') {
+    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  }
+
   const fs = require('fs');
   const possiblePaths = [
     path.join(__dirname, 'landing/index.html'),
