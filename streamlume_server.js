@@ -90,35 +90,16 @@ app.use((req, res, next) => {
     next();
 });
 
-// MSX Start Object
-app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    res.json({
-        "name": "StreamLume TV",
-        "version": "1.0",
-        "parameter": "menu:{PREFIX}{SERVER}/msx/content.json"
-    });
-});
-
-// MSX Content Root — Launcher для веб-версии
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+// MSX Start Object & Launcher — прямая загрузка веб-версии
+app.get(['/msx/start.json', '/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     // Используем динамический протокол (http или https) чтобы избежать ошибки SSL на смарт-ТВ при доступе по IP
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
     
     res.json({
-        "name": "StreamLume TV",
-        "version": "1.0",
-        "headline": "Загрузка StreamLume...",
-        "ready": {
-            "action": `link:${hostUrl}/tv/index.html`
-        },
-        "menu": [
-            {
-                "label": "Запустить приложение",
-                "icon": "msx-white-soft:play",
-                "action": `link:${hostUrl}/tv/index.html`
-            }
-        ]
+        "name": "StreamLume Web",
+        "version": "1.0.0",
+        "action": `link:${hostUrl}/tv/index.html`
     });
 });
 
