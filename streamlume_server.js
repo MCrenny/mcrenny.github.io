@@ -156,6 +156,8 @@ app.get('/msx/channels.json', (req, res) => {
     }));
 
     res.json({
+        "name": "StreamLume",
+        "version": "1.0",
         "headline": group || "Все каналы",
         "type": "list",
         "template": {
