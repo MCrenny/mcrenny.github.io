@@ -80,41 +80,44 @@ const parseCachedPlaylist = () => {
 // без навигации пульта — это была ошибка.
 // ============================================================
 
-// MSX Start Object (Тот самый рабочий вариант через content:)
+// MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    // Наследуем протокол для спасения от бага SSL
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const hostUrl = `${protocol}://${req.get('host')}`;
-
     res.json({
         "name": "StreamLume",
-        "version": "1.0",
-        "description": "Премиальное мобильное IPTV-приложение",
-        "parameter": `content:${hostUrl}/menu.json`
+        "version": "1.0.0",
+        "parameter": `menu:{PREFIX}{SERVER}/msx/menu.json`
     });
 });
 
-// MSX Content Object (Второй шаг, загружаемый через параметр)
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const host = req.get('host') || '';
-    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
-    const linkProtocol = isIp ? 'http' : 'https';
-    const linkUrl = `${linkProtocol}://${host}`;
-    
-    // Загружаем React Native Web как полноценный плагин через interaction:load, 
-    // что соответствует инструкции MSX разработчика для интерактивных приложений.
-    // Это решает проблему с навигацией пульта и полноэкранным режимом!
+// MSX Menu Root Object (Шаг 3 - Главное меню)
+app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json'], (req, res) => {
+    // Используем динамический протокол для JSON, чтобы обойти баг SSL старых ТВ
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const hostUrl = `${protocol}://${req.get('host')}`;
+
+    const channels = parseCachedPlaylist();
+    const groupsMap = {};
+    for (const ch of channels) {
+        const g = ch.group || '📺 Общие';
+        if (!groupsMap[g]) groupsMap[g] = [];
+        groupsMap[g].push(ch);
+    }
+
+    const menuItems = Object.keys(groupsMap).map(group => ({
+        "icon": "msx-white-soft:folder",
+        "label": group,
+        "data": `${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
+    }));
+
+    menuItems.unshift({
+        "icon": "msx-white-soft:live-tv",
+        "label": "📺 Все каналы",
+        "data": `${hostUrl}/msx/channels.json`
+    });
+
     res.json({
-        "type": "pages",
-        "color": "transparent",
-        "ready": {
-            "action": `interaction:load:${linkUrl}/tv/index.html`
-        },
-        "pages": [
-            {
-                "items": []
-            }
-        ]
+        "headline": "StreamLume TV",
+        "menu": menuItems
     });
 });
 
@@ -140,10 +143,6 @@ app.get('/msx/channels.json', (req, res) => {
 
 // Fallback for Root route if static files aren't found
 app.get('/', (req, res) => {
-  if (req.query.msx === '1' || req.query.tv === '1') {
-    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
-  }
-
   const fs = require('fs');
   const possiblePaths = [
     path.join(__dirname, 'landing/index.html'),
