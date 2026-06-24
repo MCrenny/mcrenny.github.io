@@ -37,6 +37,15 @@ console.log(`[StreamLume] FK_MERCHANT_ID = ${process.env.FK_MERCHANT_ID ? proces
 console.log(`[StreamLume] FK_SECRET_1 = ${process.env.FK_SECRET_1 ? 'LOADED (len: ' + process.env.FK_SECRET_1.length + ', preview: ' + process.env.FK_SECRET_1.substring(0, 2) + '...' + process.env.FK_SECRET_1.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len: ' + process.env.FK_SECRET_2.length + ', preview: ' + process.env.FK_SECRET_2.substring(0, 2) + '...' + process.env.FK_SECRET_2.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 
+// Root route to serve landing page OR TV app based on query param
+app.get('/', (req, res, next) => {
+  if (req.query.msx === '1' || req.query.tv === '1') {
+    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  }
+  // Let express.static handle the fallback if no query param is provided
+  next();
+});
+
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
@@ -147,10 +156,6 @@ app.get('/msx/channels.json', (req, res) => {
 
 // Fallback for Root route if static files aren't found
 app.get('/', (req, res) => {
-  if (req.query.msx === '1' || req.query.tv === '1') {
-    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
-  }
-
   const fs = require('fs');
   const possiblePaths = [
     path.join(__dirname, 'landing/index.html'),
