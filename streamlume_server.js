@@ -37,15 +37,6 @@ console.log(`[StreamLume] FK_MERCHANT_ID = ${process.env.FK_MERCHANT_ID ? proces
 console.log(`[StreamLume] FK_SECRET_1 = ${process.env.FK_SECRET_1 ? 'LOADED (len: ' + process.env.FK_SECRET_1.length + ', preview: ' + process.env.FK_SECRET_1.substring(0, 2) + '...' + process.env.FK_SECRET_1.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len: ' + process.env.FK_SECRET_2.length + ', preview: ' + process.env.FK_SECRET_2.substring(0, 2) + '...' + process.env.FK_SECRET_2.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 
-// Root route to serve landing page OR TV app based on query param
-app.get('/', (req, res, next) => {
-  if (req.query.msx === '1' || req.query.tv === '1') {
-    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
-  }
-  // Let express.static handle the fallback if no query param is provided
-  next();
-});
-
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
@@ -95,15 +86,11 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
 
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-
     res.json({
         "name": "StreamLume",
         "version": "1.0",
         "description": "Премиальное мобильное IPTV-приложение",
-        "parameter": `content:${hostUrl}/menu.json?v=${Date.now()}`
+        "parameter": `content:${hostUrl}/menu.json`
     });
 });
 
@@ -114,25 +101,25 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     const linkProtocol = isIp ? 'http' : 'https';
     const linkUrl = `${linkProtocol}://${host}`;
     
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
     // ВАЖНО: Мы используем "type": "pages" и экшен "execute:"!
     // Именно "execute:" заставлял ваш телевизор открыть React Native приложение 3 дня назад, 
     // потому что он вызывает системный браузер ТВ, обходя ограничения встроенного iframe MSX!
     res.json({
-        "name": "StreamLume TV",
-        "version": "1.0",
-        "headline": "Загрузка StreamLume...",
+        "type": "pages",
+        "headline": "StreamLume",
         "ready": {
-            "action": `link:${linkUrl}/tv/index.html`
+            "action": `execute:${linkUrl}/?msx=1`
         },
-        "menu": [
+        "pages": [
             {
-                "label": "Запустить приложение",
-                "icon": "msx-white-soft:play",
-                "action": `link:${linkUrl}/tv/index.html`
+                "items": [
+                    {
+                        "type": "button",
+                        "layout": "0,0,12,2",
+                        "title": "Запустить StreamLume",
+                        "action": `execute:${linkUrl}/tv/index.html`
+                    }
+                ]
             }
         ]
     });
