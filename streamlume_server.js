@@ -11,6 +11,7 @@ const { runAutoblog } = require('./autoblog');
 const { runYouTubeBot } = require('./youtube_bot');
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
