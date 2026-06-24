@@ -80,42 +80,20 @@ const parseCachedPlaylist = () => {
 // без навигации пульта — это была ошибка.
 // ============================================================
 
-// MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
+// MSX Start Object (Тот самый идеальный код 3-дневной давности)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    // Для загрузки системных JSON файлов оставляем http, если запрос пришел по http. 
-    // Это спасает от ошибки "Content not available" на старых ТВ, которые не понимают SSL сертификаты.
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
 
+    // ВАЖНО: Ключ "type": "plugin" — это то самое волшебство, которое работало 3 дня назад!
+    // Он заставляет телевизор выгрузить оболочку MSX и загрузить React Native приложение 
+    // в нативном веб-контейнере ТВ (где есть поддержка ES6), а не в устаревшем iframe.
     res.json({
         "name": "StreamLume",
-        "version": "1.0.0",
-        "parameter": `menu:${hostUrl}/menu.json`
-    });
-});
-
-// MSX Menu Root Object (Второй шаг, загружаемый через параметр)
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const host = req.get('host') || '';
-    
-    // ВАЖНО: Само веб-приложение во фрейме должно открываться строго по HTTPS (если это домен), 
-    // чтобы браузер MSX не заблокировал его из-за Mixed Content (пустой черный экран).
-    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
-    const linkProtocol = isIp ? 'http' : 'https';
-    const linkUrl = `${linkProtocol}://${host}`;
-    
-    res.json({
-        "headline": "StreamLume",
-        "menu": [
-            {
-                "icon": "msx-white-soft:play-arrow",
-                "label": "Войти в приложение",
-                // ИСПОЛЬЗУЕМ interaction: ВМЕСТО link:
-                // Это загружает React Native Web как полноценный плагин, 
-                // что решает проблему с белым экраном и падением ES6 на старых ТВ!
-                "action": `interaction:${linkUrl}/tv/index.html`
-            }
-        ]
+        "version": "1.0",
+        "description": "Премиальное мобильное IPTV-приложение",
+        "parameter": `${hostUrl}/tv/index.html`,
+        "type": "plugin"
     });
 });
 
