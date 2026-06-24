@@ -101,9 +101,12 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 
 // MSX Content Root — Launcher для веб-версии
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    // Используем динамический протокол (http или https) чтобы избежать ошибки SSL на смарт-ТВ при доступе по IP
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const hostUrl = `${protocol}://${req.get('host')}`;
+    // Если доступ по домену (Amvera), принудительно используем HTTPS для избежания ошибки Mixed Content во фрейме MSX.
+    // Если доступ по голому IP, используем HTTP, так как на IP нет SSL сертификата.
+    const host = req.get('host') || '';
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
+    const protocol = isIp ? 'http' : 'https';
+    const hostUrl = `${protocol}://${host}`;
     
     res.json({
         "name": "StreamLume TV",
