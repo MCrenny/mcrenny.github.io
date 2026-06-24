@@ -99,23 +99,47 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     });
 });
 
-// MSX Content Root — Launcher для веб-версии
+// MSX Content Root — главный экран с категориями каналов
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     const hostUrl = `https://${req.get('host')}`;
+    const channels = parseCachedPlaylist();
+
+    // Группируем по категориям
+    const groupsMap = {};
+    for (const ch of channels) {
+        const g = ch.group || '📺 Общие';
+        if (!groupsMap[g]) groupsMap[g] = [];
+        groupsMap[g].push(ch);
+    }
+
+    // Строим пункты меню — каждая категория ведёт на список каналов
+    const menuItems = Object.keys(groupsMap).map(group => ({
+        "title": group,
+        "titleFooter": `${groupsMap[group].length} каналов`,
+        "icon": "msx-white-soft:folder",
+        "action": `content:${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
+    }));
+
+    // Добавляем пункт "Все каналы" в начало
+    menuItems.unshift({
+        "title": "📺 Все каналы",
+        "titleFooter": `${channels.length} каналов`,
+        "icon": "msx-white-soft:live-tv",
+        "action": `content:${hostUrl}/msx/channels.json`
+    });
+
     res.json({
-        "name": "StreamLume TV",
+        "name": "StreamLume",
         "version": "1.0",
-        "headline": "Загрузка StreamLume...",
-        "ready": {
-            "action": `link:${hostUrl}/tv/index.html`
+        "headline": "StreamLume — IPTV",
+        "type": "list",
+        "template": {
+            "type": "separate",
+            "layout": "0,0,8,4",
+            "icon": "msx-white-soft:live-tv",
+            "color": "msx-glass"
         },
-        "menu": [
-            {
-                "label": "Запустить приложение",
-                "icon": "msx-white-soft:play",
-                "action": `link:${hostUrl}/tv/index.html`
-            }
-        ]
+        "items": menuItems
     });
 });
 
@@ -143,6 +167,12 @@ app.get('/msx/channels.json', (req, res) => {
     res.json({
         "headline": group || "Все каналы",
         "type": "list",
+        "template": {
+            "type": "separate",
+            "layout": "0,0,8,4",
+            "icon": "msx-white-soft:live-tv",
+            "color": "msx-glass"
+        },
         "items": items
     });
 });
