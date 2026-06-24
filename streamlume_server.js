@@ -82,7 +82,7 @@ const parseCachedPlaylist = () => {
 // ============================================================
 
 // MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
-app.get(['/msx/start.json', '/start.json'], (req, res) => {
+app.get(['/msx/start.json', '/start.json', '/tv/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
@@ -91,7 +91,7 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 });
 
 // MSX Menu Root Object (Шаг 3 - Главное меню)
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+app.get(['/menu.json', '/msx.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     // Используем динамический протокол для JSON, чтобы обойти баг SSL старых ТВ
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
