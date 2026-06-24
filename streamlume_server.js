@@ -122,21 +122,17 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     // Именно "execute:" заставлял ваш телевизор открыть React Native приложение 3 дня назад, 
     // потому что он вызывает системный браузер ТВ, обходя ограничения встроенного iframe MSX!
     res.json({
-        "type": "pages",
-        "headline": "StreamLume",
+        "name": "StreamLume TV",
+        "version": "1.0",
+        "headline": "Загрузка StreamLume...",
         "ready": {
             "action": `link:${linkUrl}/tv/index.html`
         },
-        "pages": [
+        "menu": [
             {
-                "items": [
-                    {
-                        "type": "button",
-                        "layout": "0,0,12,2",
-                        "title": "Запустить StreamLume",
-                        "action": `link:${linkUrl}/tv/index.html`
-                    }
-                ]
+                "label": "Запустить приложение",
+                "icon": "msx-white-soft:play",
+                "action": `link:${linkUrl}/tv/index.html`
             }
         ]
     });
