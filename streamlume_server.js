@@ -117,7 +117,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
                         "type": "button",
                         "layout": "0,0,12,2",
                         "title": "Запустить StreamLume",
-                        "action": `execute:${linkUrl}/tv/index.html`
+                        "action": `execute:${linkUrl}/?msx=1`
                     }
                 ]
             }
@@ -147,6 +147,10 @@ app.get('/msx/channels.json', (req, res) => {
 
 // Fallback for Root route if static files aren't found
 app.get('/', (req, res) => {
+  if (req.query.msx === '1' || req.query.tv === '1') {
+    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  }
+
   const fs = require('fs');
   const possiblePaths = [
     path.join(__dirname, 'landing/index.html'),
