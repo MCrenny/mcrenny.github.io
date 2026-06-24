@@ -95,11 +95,11 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
-        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
+        "parameter": "menu:{PREFIX}{SERVER}/msx/content.json"
     });
 });
 
-// MSX Content Root — главный экран с категориями каналов
+// MSX Content Root — главный экран с категориями каналов (теперь как Menu Root Object)
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     const channels = parseCachedPlaylist();
 
@@ -111,18 +111,16 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         groupsMap[g].push(ch);
     }
 
-    // Строим пункты меню — каждая категория ведёт на список каналов
+    // Строим пункты меню — каждая категория ведёт на список каналов (Content Root Object)
     const menuItems = Object.keys(groupsMap).map(group => ({
-        "title": group,
-        "titleFooter": `${groupsMap[group].length} каналов`,
+        "label": group,
         "icon": "msx-white-soft:folder",
         "action": `content:{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
     }));
 
     // Добавляем пункт "Все каналы" в начало
     menuItems.unshift({
-        "title": "📺 Все каналы",
-        "titleFooter": `${channels.length} каналов`,
+        "label": "📺 Все каналы",
         "icon": "msx-white-soft:live-tv",
         "action": `content:{PREFIX}{SERVER}/msx/channels.json`
     });
@@ -131,14 +129,8 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "name": "StreamLume",
         "version": "1.0",
         "headline": "StreamLume — IPTV",
-        "type": "list",
-        "template": {
-            "type": "separate",
-            "layout": "0,0,8,4",
-            "icon": "msx-white-soft:live-tv",
-            "color": "msx-glass"
-        },
-        "items": menuItems
+        "type": "menu",
+        "menu": menuItems
     });
 });
 
