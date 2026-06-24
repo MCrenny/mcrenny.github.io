@@ -103,8 +103,7 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
         "name": "StreamLume",
         "version": "1.0",
         "description": "Премиальное мобильное IPTV-приложение",
-        "type": "plugin",
-        "parameter": `${hostUrl}/tv/index.html`
+        "parameter": `content:${hostUrl}/menu.json?v=${Date.now()}`
     });
 });
 
@@ -123,9 +122,16 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     // Именно "execute:" заставлял ваш телевизор открыть React Native приложение 3 дня назад, 
     // потому что он вызывает системный браузер ТВ, обходя ограничения встроенного iframe MSX!
     res.json({
-        "type": "plugin",
-        "name": "StreamLume",
-        "parameter": `${linkUrl}/tv/index.html`
+        "type": "pages",
+        "color": "transparent",
+        "ready": {
+            "action": `interaction:load:${linkUrl}/tv/index.html`
+        },
+        "pages": [
+            {
+                "items": []
+            }
+        ]
     });
 });
 
