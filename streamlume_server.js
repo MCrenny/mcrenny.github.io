@@ -101,7 +101,6 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 
 // MSX Content Root — главный экран с категориями каналов
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const hostUrl = `https://${req.get('host')}`;
     const channels = parseCachedPlaylist();
 
     // Группируем по категориям
@@ -117,7 +116,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "title": group,
         "titleFooter": `${groupsMap[group].length} каналов`,
         "icon": "msx-white-soft:folder",
-        "action": `content:${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
+        "action": `content:{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
     }));
 
     // Добавляем пункт "Все каналы" в начало
@@ -125,7 +124,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "title": "📺 Все каналы",
         "titleFooter": `${channels.length} каналов`,
         "icon": "msx-white-soft:live-tv",
-        "action": `content:${hostUrl}/msx/channels.json`
+        "action": `content:{PREFIX}{SERVER}/msx/channels.json`
     });
 
     res.json({
