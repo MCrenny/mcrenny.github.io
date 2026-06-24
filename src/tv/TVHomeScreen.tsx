@@ -44,7 +44,7 @@ export const TVHomeScreen = ({ navigation }: any) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('Все каналы');
   
   // Режим отображения: 'normal' (обычные плитки), 'small' (маленькие), 'large' (большие), 'list' (классический список)
-  const [viewMode, setViewMode] = useState<ViewMode>('normal');
+  const [viewMode, setViewMode] = useState<ViewMode>(Platform.OS === 'web' ? 'small' : 'normal');
 
   // Отслеживание текущего активного индекса для плавного скролла
   const [focusedPlaylistIdx, setFocusedPlaylistIdx] = useState(0);
@@ -269,14 +269,14 @@ export const TVHomeScreen = ({ navigation }: any) => {
   const getNumColumns = (mode: ViewMode) => {
     switch (mode) {
       case 'small':
-        return 7;
+        return 8;
       case 'large':
-        return 3;
+        return 4;
       case 'list':
         return 1;
       case 'normal':
       default:
-        return 5;
+        return 6;
     }
   };
 
@@ -975,33 +975,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   header: {
-    height: 70,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
   logo: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#0A84FF',
-    marginRight: 24,
+    marginRight: 16,
   },
   tvBadge: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#FFD700',
     backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 4,
   },
   viewModeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: 'rgba(10, 132, 255, 0.1)',
-    marginRight: 20,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -1054,17 +1054,17 @@ const styles = StyleSheet.create({
   },
   playlistsScrollView: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 8,
   },
   playlistsScroll: {
     alignItems: 'center',
   },
   playlistChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    marginRight: 12,
+    marginRight: 10,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   playlistText: {
     color: '#8e8e93',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   playlistTextActive: {
@@ -1092,17 +1092,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sidebar: {
-    width: 240,
+    width: 180,
+    minWidth: 160,
     borderRightWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   groupItem: {
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     marginVertical: 2,
     borderRadius: 8,
-    marginHorizontal: 12,
+    marginHorizontal: 8,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -1141,31 +1142,10 @@ const styles = StyleSheet.create({
   
   // 1. Обычные плитки (5 колонок)
   channelCardNormal: {
-    width: '18%',
-    aspectRatio: 1.3,
+    width: '13%',
+    aspectRatio: 1.35,
     backgroundColor: '#1c1c1e',
     borderRadius: 12,
-    margin: 6,
-    padding: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  channelNameNormal: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-
-  // 2. Маленькие плитки (7 колонок)
-  channelCardSmall: {
-    width: '12%',
-    aspectRatio: 1.4,
-    backgroundColor: '#1c1c1e',
-    borderRadius: 8,
     margin: 4,
     padding: 8,
     justifyContent: 'center',
@@ -1173,38 +1153,59 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
-  channelNameSmall: {
-    fontSize: 11,
+  channelNameNormal: {
+    fontSize: 12,
     color: '#ffffff',
     fontWeight: 'bold',
-    lineHeight: 14,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+
+  // 2. Маленькие плитки (7 колонок)
+  channelCardSmall: {
+    width: '9%',
+    aspectRatio: 1.4,
+    backgroundColor: '#1c1c1e',
+    borderRadius: 8,
+    margin: 3,
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  channelNameSmall: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: 'bold',
+    lineHeight: 12,
     textAlign: 'center',
   },
 
   // 3. Большие плитки (3 колонки)
   channelCardLarge: {
-    width: '30%',
-    aspectRatio: 1.2,
+    width: '24%',
+    aspectRatio: 1.3,
     backgroundColor: '#1c1c1e',
-    borderRadius: 16,
-    margin: 8,
-    padding: 16,
+    borderRadius: 14,
+    margin: 6,
+    padding: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
   channelNameLarge: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#ffffff',
     fontWeight: 'bold',
-    lineHeight: 22,
+    lineHeight: 20,
     textAlign: 'center',
   },
 
   // 4. Классический список (одна колонка во всю ширину)
   channelCardList: {
-    width: '98%',
+    width: '96%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1c1c1e',
