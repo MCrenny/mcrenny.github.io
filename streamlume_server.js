@@ -123,13 +123,20 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     // потому что он вызывает системный браузер ТВ, обходя ограничения встроенного iframe MSX!
     res.json({
         "type": "pages",
-        "color": "transparent",
+        "headline": "StreamLume",
         "ready": {
-            "action": `interaction:load:${linkUrl}/tv/index.html`
+            "action": `link:${linkUrl}/tv/index.html`
         },
         "pages": [
             {
-                "items": []
+                "items": [
+                    {
+                        "type": "button",
+                        "layout": "0,0,12,2",
+                        "title": "Запустить StreamLume",
+                        "action": `link:${linkUrl}/tv/index.html`
+                    }
+                ]
             }
         ]
     });
