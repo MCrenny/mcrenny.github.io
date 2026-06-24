@@ -83,14 +83,14 @@ const parseCachedPlaylist = () => {
 // MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
-        "name": "StreamLume",
-        "version": "1.0.0",
-        "parameter": `menu:{PREFIX}{SERVER}/msx/menu.json`
+        "name": "StreamLume TV",
+        "version": "1.0",
+        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
     });
 });
 
 // MSX Menu Root Object (Шаг 3 - Главное меню)
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json'], (req, res) => {
+app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     // Используем динамический протокол для JSON, чтобы обойти баг SSL старых ТВ
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
@@ -104,40 +104,58 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     }
 
     const menuItems = Object.keys(groupsMap).map(group => ({
+        "title": group,
+        "titleFooter": `${groupsMap[group].length} каналов`,
         "icon": "msx-white-soft:folder",
-        "label": group,
-        "data": `${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
+        "action": `content:${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
     }));
 
     menuItems.unshift({
+        "title": "📺 Все каналы",
+        "titleFooter": `${channels.length} каналов`,
         "icon": "msx-white-soft:live-tv",
-        "label": "📺 Все каналы",
-        "data": `${hostUrl}/msx/channels.json`
+        "action": `content:${hostUrl}/msx/channels.json`
     });
 
     res.json({
+        "name": "StreamLume",
+        "version": "1.0",
         "headline": "StreamLume TV",
-        "menu": menuItems
+        "type": "list",
+        "template": {
+            "type": "separate",
+            "layout": "0,0,8,4",
+            "icon": "msx-white-soft:live-tv",
+            "color": "msx-glass"
+        },
+        "items": menuItems
     });
 });
 
-// MSX Content Root Object (Шаг 4 - Сетка каналов)
+// MSX Channels Content (Шаг 4 - Список каналов)
 app.get('/msx/channels.json', (req, res) => {
     const group = req.query.group || null;
     let channels = parseCachedPlaylist();
     if (group) channels = channels.filter(ch => ch.group === group);
-    
+
+    const items = channels.map(ch => ({
+        "title": ch.name,
+        "titleFooter": ch.group,
+        "image": ch.logo || undefined,
+        "imageFill": "msx-white:live-tv",
+        "action": `video:${ch.url}`
+    }));
+
     res.json({
-        "name": "StreamLume",
-        "version": "1.0.0",
-        "icon": "msx-white-soft:live-tv",
         "headline": group || "Все каналы",
-        "type": "grid",
-        "items": channels.map(ch => ({
-            "title": ch.name,
-            "image": ch.logo || undefined,
-            "action": `video:${ch.url}`
-        }))
+        "type": "list",
+        "template": {
+            "type": "separate",
+            "layout": "0,0,8,4",
+            "icon": "msx-white-soft:live-tv",
+            "color": "msx-glass"
+        },
+        "items": items
     });
 });
 
