@@ -80,54 +80,42 @@ const parseCachedPlaylist = () => {
 // без навигации пульта — это была ошибка.
 // ============================================================
 
-// MSX Start Object (Шаг 2)
-app.use((req, res, next) => {
-    if (req.path.includes('.json') || req.path.includes('/msx')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-    }
-    next();
-});
-
-// MSX Start Object (Шаг 2)
+// MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    res.json({
-        "name": "StreamLume",
-        "version": "1.0.0",
-        "parameter": `menu:{PREFIX}{SERVER}/msx/menu.json`
-    });
-});
-
-// MSX Menu Root Object (Шаг 3 - Главное меню)
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json'], (req, res) => {
-    // Используем динамический протокол для JSON, чтобы обойти баг SSL старых ТВ
+    // Для загрузки системных JSON файлов оставляем http, если запрос пришел по http. 
+    // Это спасает от ошибки "Content not available" на старых ТВ, которые не понимают SSL сертификаты.
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
 
-    const channels = parseCachedPlaylist();
-    const groupsMap = {};
-    for (const ch of channels) {
-        const g = ch.group || '📺 Общие';
-        if (!groupsMap[g]) groupsMap[g] = [];
-        groupsMap[g].push(ch);
-    }
-
-    const menuItems = Object.keys(groupsMap).map(group => ({
-        "icon": "msx-white-soft:folder",
-        "label": group,
-        "data": `${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
-    }));
-
-    menuItems.unshift({
-        "icon": "msx-white-soft:live-tv",
-        "label": "📺 Все каналы",
-        "data": `${hostUrl}/msx/channels.json`
-    });
-
     res.json({
-        "headline": "StreamLume TV",
-        "menu": menuItems
+        "name": "StreamLume",
+        "version": "1.0.0",
+        "parameter": `menu:${hostUrl}/menu.json`
+    });
+});
+
+// MSX Menu Root Object (Второй шаг, загружаемый через параметр)
+app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+    const host = req.get('host') || '';
+    
+    // ВАЖНО: Само веб-приложение во фрейме должно открываться строго по HTTPS (если это домен), 
+    // чтобы браузер MSX не заблокировал его из-за Mixed Content (пустой черный экран).
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
+    const linkProtocol = isIp ? 'http' : 'https';
+    const linkUrl = `${linkProtocol}://${host}`;
+    
+    res.json({
+        "headline": "StreamLume",
+        "menu": [
+            {
+                "icon": "msx-white-soft:play-arrow",
+                "label": "Войти в приложение",
+                // ИСПОЛЬЗУЕМ interaction: ВМЕСТО link:
+                // Это загружает React Native Web как полноценный плагин, 
+                // что решает проблему с белым экраном и падением ES6 на старых ТВ!
+                "action": `interaction:${linkUrl}/tv/index.html`
+            }
+        ]
     });
 });
 
