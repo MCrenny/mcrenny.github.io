@@ -95,11 +95,15 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
 
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     res.json({
         "name": "StreamLume",
         "version": "1.0",
         "description": "Премиальное мобильное IPTV-приложение",
-        "parameter": `content:${hostUrl}/menu.json`
+        "parameter": `content:${hostUrl}/menu.json?v=${Date.now()}`
     });
 });
 
@@ -109,6 +113,10 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
     const linkProtocol = isIp ? 'http' : 'https';
     const linkUrl = `${linkProtocol}://${host}`;
+    
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     
     // ВАЖНО: Мы используем "type": "pages" и экшен "execute:"!
     // Именно "execute:" заставлял ваш телевизор открыть React Native приложение 3 дня назад, 
