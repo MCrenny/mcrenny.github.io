@@ -125,7 +125,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
         "type": "pages",
         "headline": "StreamLume",
         "ready": {
-            "action": `link:${linkUrl}/tv/index.html`
+            "action": `interaction:load:${linkUrl}/tv/index.html`
         },
         "pages": [
             {
@@ -134,7 +134,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
                         "type": "button",
                         "layout": "0,0,12,2",
                         "title": "Запустить StreamLume",
-                        "action": `link:${linkUrl}/tv/index.html`
+                        "action": `interaction:load:${linkUrl}/tv/index.html`
                     }
                 ]
             }
