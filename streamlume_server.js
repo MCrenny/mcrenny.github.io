@@ -92,25 +92,21 @@ app.use((req, res, next) => {
 
 // MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    // Используем динамический протокол
-    const host = req.get('host') || '';
-    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
-    const protocol = isIp ? 'http' : 'https';
-    const hostUrl = `${protocol}://${host}`;
+    // Естественное наследование протокола (http/https). Принудительный HTTPS вызывал ошибки SSL на старых ТВ.
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const hostUrl = `${protocol}://${req.get('host')}`;
 
     res.json({
         "name": "StreamLume",
         "version": "1.0.0",
-        "parameter": `menu:${hostUrl}/msx/menu.json`
+        "parameter": `menu:${hostUrl}/menu.json`
     });
 });
 
 // MSX Menu Root Object (Второй шаг, загружаемый через параметр)
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const host = req.get('host') || '';
-    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
-    const protocol = isIp ? 'http' : 'https';
-    const hostUrl = `${protocol}://${host}`;
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const hostUrl = `${protocol}://${req.get('host')}`;
     
     res.json({
         "headline": "StreamLume",
