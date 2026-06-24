@@ -90,34 +90,25 @@ app.use((req, res, next) => {
     next();
 });
 
-// MSX Start Object (Обязательный файл, должен содержать 'parameter')
-app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    res.json({
-        "name": "StreamLume TV",
-        "version": "1.0.0",
-        "parameter": `menu:{PREFIX}{SERVER}/msx/content.json`
-    });
-});
-
-// MSX Content Root — Launcher для веб-версии
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    // Чистое определение протокола (без костылей с регулярками)
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const hostUrl = `${protocol}://${req.get('host')}`;
+// MSX Start Object — Чистая эталонная сборка (по совету Claude)
+app.get(['/msx/start.json', '/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+    // Безопасное разрешение протокола (HTTPS для доменов, HTTP для IP)
+    const host = req.get('host') || '';
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
+    const protocol = isIp ? 'http' : 'https';
+    const hostUrl = `${protocol}://${host}`;
     
     res.json({
-        "name": "StreamLume TV",
+        "name": "StreamLume",
         "version": "1.0.0",
-        "headline": "Загрузка StreamLume...",
-        "ready": {
-            // ВРЕМЕННО: Тестовая страница MSX для проверки рендеринга iframe
-            "action": `link:https://msx.benzac.de/info/`
-        },
-        "menu": [
+        "icon": "https://msx.benzac.de/img/logo.png",
+        "main": [
             {
-                "label": "Запустить тестовую страницу",
-                "icon": "msx-white-soft:bug-report",
-                "action": `link:https://msx.benzac.de/info/`
+                "type": "control",
+                "layout": "0,0,1,1",
+                "icon": "msx-white-soft:play-arrow",
+                "label": "Запустить StreamLume",
+                "action": `link:${hostUrl}/tv/index.html`
             }
         ]
     });
