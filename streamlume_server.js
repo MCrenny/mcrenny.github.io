@@ -101,6 +101,9 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 
 // MSX Menu Root Object (Шаг 3 - Главное меню)
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json'], (req, res) => {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const hostUrl = `${protocol}://${req.get('host')}`;
+    
     const channels = parseCachedPlaylist();
     const groupsMap = {};
     for (const ch of channels) {
@@ -112,13 +115,13 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
     const menuItems = Object.keys(groupsMap).map(group => ({
         "icon": "msx-white-soft:folder",
         "label": group,
-        "data": `{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
+        "data": `${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
     }));
 
     menuItems.unshift({
         "icon": "msx-white-soft:live-tv",
         "label": "📺 Все каналы",
-        "data": `{PREFIX}{SERVER}/msx/channels.json`
+        "data": `${hostUrl}/msx/channels.json`
     });
 
     res.json({
