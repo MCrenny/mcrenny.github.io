@@ -80,20 +80,48 @@ const parseCachedPlaylist = () => {
 // без навигации пульта — это была ошибка.
 // ============================================================
 
-// MSX Start Object (Тот самый идеальный код 3-дневной давности)
+// MSX Start Object (Тот самый рабочий вариант через content:)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
+    // Наследуем протокол для спасения от бага SSL
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
 
-    // ВАЖНО: Ключ "type": "plugin" — это то самое волшебство, которое работало 3 дня назад!
-    // Он заставляет телевизор выгрузить оболочку MSX и загрузить React Native приложение 
-    // в нативном веб-контейнере ТВ (где есть поддержка ES6), а не в устаревшем iframe.
     res.json({
         "name": "StreamLume",
         "version": "1.0",
         "description": "Премиальное мобильное IPTV-приложение",
-        "parameter": `${hostUrl}/tv/index.html`,
-        "type": "plugin"
+        "parameter": `content:${hostUrl}/menu.json`
+    });
+});
+
+// MSX Content Object (Второй шаг, загружаемый через параметр)
+app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
+    const host = req.get('host') || '';
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
+    const linkProtocol = isIp ? 'http' : 'https';
+    const linkUrl = `${linkProtocol}://${host}`;
+    
+    // ВАЖНО: Мы используем "type": "pages" и экшен "execute:"!
+    // Именно "execute:" заставлял ваш телевизор открыть React Native приложение 3 дня назад, 
+    // потому что он вызывает системный браузер ТВ, обходя ограничения встроенного iframe MSX!
+    res.json({
+        "type": "pages",
+        "headline": "StreamLume",
+        "ready": {
+            "action": `execute:${linkUrl}/?msx=1`
+        },
+        "pages": [
+            {
+                "items": [
+                    {
+                        "type": "button",
+                        "layout": "0,0,12,2",
+                        "title": "Запустить StreamLume",
+                        "action": `execute:${linkUrl}/tv/index.html`
+                    }
+                ]
+            }
+        ]
     });
 });
 
