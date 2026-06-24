@@ -101,25 +101,23 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 
 // MSX Content Root — Launcher для веб-версии
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    // Если доступ по домену (Amvera), принудительно используем HTTPS для избежания ошибки Mixed Content во фрейме MSX.
-    // Если доступ по голому IP, используем HTTP, так как на IP нет SSL сертификата.
-    const host = req.get('host') || '';
-    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
-    const protocol = isIp ? 'http' : 'https';
-    const hostUrl = `${protocol}://${host}`;
+    // Чистое определение протокола (без костылей с регулярками)
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const hostUrl = `${protocol}://${req.get('host')}`;
     
     res.json({
         "name": "StreamLume TV",
         "version": "1.0.0",
         "headline": "Загрузка StreamLume...",
         "ready": {
-            "action": `link:${hostUrl}/tv/index.html`
+            // ВРЕМЕННО: Тестовая страница MSX для проверки рендеринга iframe
+            "action": `link:https://msx.benzac.de/info/`
         },
         "menu": [
             {
-                "label": "Запустить приложение",
-                "icon": "msx-white-soft:play",
-                "action": `link:${hostUrl}/tv/index.html`
+                "label": "Запустить тестовую страницу",
+                "icon": "msx-white-soft:bug-report",
+                "action": `link:https://msx.benzac.de/info/`
             }
         ]
     });
