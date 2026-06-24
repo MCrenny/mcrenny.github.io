@@ -90,24 +90,34 @@ app.use((req, res, next) => {
     next();
 });
 
-// MSX Start Object — Чистая эталонная сборка (по совету Claude)
-app.get(['/msx/start.json', '/start.json', '/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    // Безопасное разрешение протокола (HTTPS для доменов, HTTP для IP)
+// MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
+app.get(['/msx/start.json', '/start.json'], (req, res) => {
+    // Используем динамический протокол
+    const host = req.get('host') || '';
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
+    const protocol = isIp ? 'http' : 'https';
+    const hostUrl = `${protocol}://${host}`;
+
+    res.json({
+        "name": "StreamLume",
+        "version": "1.0.0",
+        "parameter": `menu:${hostUrl}/msx/menu.json`
+    });
+});
+
+// MSX Menu Root Object (Второй шаг, загружаемый через параметр)
+app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     const host = req.get('host') || '';
     const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
     const protocol = isIp ? 'http' : 'https';
     const hostUrl = `${protocol}://${host}`;
     
     res.json({
-        "name": "StreamLume",
-        "version": "1.0.0",
-        "icon": "https://msx.benzac.de/img/logo.png",
-        "main": [
+        "headline": "StreamLume",
+        "menu": [
             {
-                "type": "control",
-                "layout": "0,0,1,1",
                 "icon": "msx-white-soft:play-arrow",
-                "label": "Запустить StreamLume",
+                "label": "Войти в приложение",
                 "action": `link:${hostUrl}/tv/index.html`
             }
         ]
