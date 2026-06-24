@@ -95,7 +95,7 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
-        "parameter": "menu:{PREFIX}{SERVER}/msx/content.json"
+        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
     });
 });
 
