@@ -92,7 +92,8 @@ app.use((req, res, next) => {
 
 // MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
 app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    // Естественное наследование протокола (http/https). Принудительный HTTPS вызывал ошибки SSL на старых ТВ.
+    // Для загрузки системных JSON файлов оставляем http, если запрос пришел по http. 
+    // Это спасает от ошибки "Content not available" на старых ТВ, которые не понимают SSL сертификаты.
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const hostUrl = `${protocol}://${req.get('host')}`;
 
@@ -105,8 +106,13 @@ app.get(['/msx/start.json', '/start.json'], (req, res) => {
 
 // MSX Menu Root Object (Второй шаг, загружаемый через параметр)
 app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const hostUrl = `${protocol}://${req.get('host')}`;
+    const host = req.get('host') || '';
+    
+    // ВАЖНО: Само веб-приложение во фрейме должно открываться строго по HTTPS (если это домен), 
+    // чтобы браузер MSX не заблокировал его из-за Mixed Content (пустой черный экран).
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
+    const linkProtocol = isIp ? 'http' : 'https';
+    const linkUrl = `${linkProtocol}://${host}`;
     
     res.json({
         "headline": "StreamLume",
@@ -114,7 +120,7 @@ app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/men
             {
                 "icon": "msx-white-soft:play-arrow",
                 "label": "Войти в приложение",
-                "action": `link:${hostUrl}/tv/index.html`
+                "action": `link:${linkUrl}/tv/index.html`
             }
         ]
     });
