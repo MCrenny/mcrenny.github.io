@@ -149,11 +149,11 @@ app.get('/msx/channels.json', (req, res) => {
 
     res.json({
         "headline": group || "Все каналы",
-        "type": "default",
+        "type": "list",
         "template": {
             "type": "separate",
             "layout": "0,0,2,4",
-            "imageFiller": "smart",
+            "icon": "msx-white-soft:live-tv",
             "color": "msx-glass"
         },
         "items": items
