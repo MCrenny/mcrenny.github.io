@@ -82,8 +82,20 @@ const MainTabs = ({ isPro }: { isPro: boolean }) => {
 
 import { View, ActivityIndicator } from 'react-native';
 
+const MainScreen = () => {
+  const isAuthorized = useStore(state => state.isAuthorized);
+  const trialStartDate = useStore(state => state.trialStartDate);
+  const isTrialActive = trialStartDate != null && (Date.now() - trialStartDate <= 3 * 24 * 60 * 60 * 1000);
+  const isPro = isAuthorized || isTrialActive;
+
+  return isTVDevice() ? <TVHomeScreen /> : <MainTabs isPro={isPro} />;
+};
+
 export default function App() {
-  const { isAuthorized, isFreeMode, trialStartDate, hasHydrated } = useStore();
+  const isAuthorized = useStore(state => state.isAuthorized);
+  const isFreeMode = useStore(state => state.isFreeMode);
+  const trialStartDate = useStore(state => state.trialStartDate);
+  const hasHydrated = useStore(state => state.hasHydrated);
 
   const isTrialActive = trialStartDate != null && (Date.now() - trialStartDate <= 3 * 24 * 60 * 60 * 1000);
   const isPro = isAuthorized || isTrialActive;
@@ -123,7 +135,7 @@ export default function App() {
             <>
               <Stack.Screen 
                 name="Main" 
-                component={isTVDevice() ? TVHomeScreen : () => <MainTabs isPro={isPro} />} 
+                component={MainScreen} 
               />
 
               <Stack.Screen name="Player" component={PlayerScreen} />
