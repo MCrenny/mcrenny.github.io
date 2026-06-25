@@ -145,7 +145,7 @@ const verifyKey = (key) => {
   }
 
   const stmt = db.prepare('SELECT * FROM keys WHERE key = ?');
-  const row = stmt.get(key.trim());
+  const row = stmt.get(cleanKey);
   
   if (row) {
     const now = new Date();

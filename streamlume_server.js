@@ -193,8 +193,9 @@ app.get('/api/playlist', async (req, res) => {
     return res.status(401).send('#EXTM3U\n#EXTINF:-1, Пожалуйста введите VIP-ключ в StreamLume!\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
   }
 
+  const cleanKey = key.trim().toUpperCase();
   // Block legacy free-access token — must buy a real key
-  if (key === 'VIP-TEST' || key.startsWith('VIP-TEST-')) {
+  if (cleanKey === 'VIP-TEST' || cleanKey.startsWith('VIP-TEST-')) {
     return res.status(401).send('#EXTM3U\n#EXTINF:-1, Взломанный ключ. Пожалуйста купите @StreameLumeBot\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
   }
 
