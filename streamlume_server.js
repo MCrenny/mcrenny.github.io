@@ -86,11 +86,14 @@ app.get(['/msx/start.json', '/start.json', '/tv/start.json'], (req, res) => {
     res.json({
         "name": "StreamLume TV",
         "version": "1.0",
-        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
+        "parameter": "menu:{PREFIX}{SERVER}/msx/menu.json"
     });
 });
 
 // MSX Menu Root Object (Шаг 3 - Главное меню)
+// Меню групп слева; при наведении на пункт его поле "data" подгружает
+// сетку каналов справа (Content Root Object по URL). Это штатный
+// IPTV-интерфейс MSX (меню + контент-панель), а не вертикальный список.
 app.get(['/menu.json', '/msx.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
     // Используем динамический протокол для JSON, чтобы обойти баг SSL старых ТВ
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
@@ -104,32 +107,31 @@ app.get(['/menu.json', '/msx.json', '/tv/menu.json', '/msx/menu.json', '/msx/con
         groupsMap[g].push(ch);
     }
 
-    const menuItems = Object.keys(groupsMap).map(group => ({
-        "title": group,
-        "titleFooter": `${groupsMap[group].length} каналов`,
-        "icon": "msx-white-soft:folder",
-        "action": `content:${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
-    }));
+    const menu = [{
+        "id": "all",
+        "icon": "live-tv",
+        "label": "Все каналы",
+        "extensionLabel": `${channels.length}`,
+        "data": `${hostUrl}/msx/channels.json`
+    }];
 
-    menuItems.unshift({
-        "title": "📺 Все каналы",
-        "titleFooter": `${channels.length} каналов`,
-        "icon": "msx-white-soft:live-tv",
-        "action": `content:${hostUrl}/msx/channels.json`
-    });
+    for (const group of Object.keys(groupsMap)) {
+        menu.push({
+            "id": group,
+            "icon": "folder",
+            "label": group,
+            "extensionLabel": `${groupsMap[group].length}`,
+            "data": `${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
+        });
+    }
 
     res.json({
         "name": "StreamLume",
         "version": "1.0",
+        "flag": "streamlume",
         "headline": "StreamLume TV",
-        "type": "list",
-        "template": {
-            "type": "separate",
-            "layout": "0,0,8,1",
-            "icon": "msx-white-soft:live-tv",
-            "color": "msx-glass"
-        },
-        "items": menuItems
+        "logoSize": "small",
+        "menu": menu
     });
 });
 
