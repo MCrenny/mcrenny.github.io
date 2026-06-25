@@ -38,6 +38,17 @@ console.log(`[StreamLume] FK_MERCHANT_ID = ${process.env.FK_MERCHANT_ID ? proces
 console.log(`[StreamLume] FK_SECRET_1 = ${process.env.FK_SECRET_1 ? 'LOADED (len: ' + process.env.FK_SECRET_1.length + ', preview: ' + process.env.FK_SECRET_1.substring(0, 2) + '...' + process.env.FK_SECRET_1.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len: ' + process.env.FK_SECRET_2.length + ', preview: ' + process.env.FK_SECRET_2.substring(0, 2) + '...' + process.env.FK_SECRET_2.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 
+// Root route: отдаём TV web-app при ?msx=1 / ?tv=1, иначе лендинг.
+// ВАЖНО: этот обработчик должен стоять ВЫШЕ express.static, иначе static
+// перехватит / и вернёт лендинг. Это и есть рабочий MSX-механизм:
+// MSX выполняет execute:.../?msx=1 и ТВ открывает Expo-приложение целиком.
+app.get('/', (req, res, next) => {
+  if (req.query.msx === '1' || req.query.tv === '1') {
+    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  }
+  next();
+});
+
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
 app.use(express.static(__dirname));
@@ -74,92 +85,13 @@ const parseCachedPlaylist = () => {
 };
 
 // ============================================================
-// MSX Content API — правильный способ интеграции по документации
-// разработчика (msx.benzac.de/wiki). MSX сам управляет навигацией
-// пультом (UP/DOWN/LEFT/RIGHT/OK), когда контент подаётся в формате
-// Content API JSON. Действие "link:" открывает внешнюю страницу
-// без навигации пульта — это была ошибка.
+// MSX integration (рабочий механизм из коммита 7a66f6f, 21 июня).
+// MSX грузит статический tv/start.json → tv/menu.json, чей ready.action
+// выполняет execute:.../?msx=1 — и ТВ открывает Expo-приложение целиком
+// в нативном браузере (интерфейс как в мобильном приложении).
 // ============================================================
-
-// MSX Start Object (Неубиваемый вариант с обязательным ключом parameter)
-app.get(['/msx/start.json', '/start.json', '/tv/start.json'], (req, res) => {
-    res.json({
-        "name": "StreamLume TV",
-        "version": "1.0",
-        "parameter": "menu:{PREFIX}{SERVER}/msx/menu.json"
-    });
-});
-
-// MSX Menu Root Object (Шаг 3 - Главное меню)
-// Меню групп слева; при наведении на пункт его поле "data" подгружает
-// сетку каналов справа (Content Root Object по URL). Это штатный
-// IPTV-интерфейс MSX (меню + контент-панель), а не вертикальный список.
-app.get(['/menu.json', '/msx.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    // Используем динамический протокол для JSON, чтобы обойти баг SSL старых ТВ
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const hostUrl = `${protocol}://${req.get('host')}`;
-
-    const channels = parseCachedPlaylist();
-    const groupsMap = {};
-    for (const ch of channels) {
-        const g = ch.group || '📺 Общие';
-        if (!groupsMap[g]) groupsMap[g] = [];
-        groupsMap[g].push(ch);
-    }
-
-    const menu = [{
-        "id": "all",
-        "icon": "live-tv",
-        "label": "Все каналы",
-        "extensionLabel": `${channels.length}`,
-        "data": `${hostUrl}/msx/channels.json`
-    }];
-
-    for (const group of Object.keys(groupsMap)) {
-        menu.push({
-            "id": group,
-            "icon": "folder",
-            "label": group,
-            "extensionLabel": `${groupsMap[group].length}`,
-            "data": `${hostUrl}/msx/channels.json?group=${encodeURIComponent(group)}`
-        });
-    }
-
-    res.json({
-        "name": "StreamLume",
-        "version": "1.0",
-        "flag": "streamlume",
-        "headline": "StreamLume TV",
-        "logoSize": "small",
-        "menu": menu
-    });
-});
-
-// MSX Channels Content (Шаг 4 - Список каналов)
-app.get('/msx/channels.json', (req, res) => {
-    const group = req.query.group || null;
-    let channels = parseCachedPlaylist();
-    if (group) channels = channels.filter(ch => ch.group === group);
-
-    const items = channels.map(ch => ({
-        "title": ch.name,
-        "titleFooter": ch.group,
-        "image": ch.logo || undefined,
-        "imageFill": "msx-white:live-tv",
-        "action": `video:${ch.url}`
-    }));
-
-    res.json({
-        "headline": group || "Все каналы",
-        "type": "list",
-        "template": {
-            "type": "separate",
-            "layout": "0,0,2,4",
-            "icon": "msx-white-soft:live-tv",
-            "color": "msx-glass"
-        },
-        "items": items
-    });
+app.get(['/start.json', '/msx/start.json'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'tv', 'start.json'));
 });
 
 // Fallback for Root route if static files aren't found

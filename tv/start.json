@@ -1,0 +1,6 @@
+{
+  "name": "StreamLume",
+  "version": "1.0",
+  "description": "Премиальное мобильное IPTV-приложение",
+  "parameter": "content:https://iptvpay-svmorozoww.amvera.io/tv/menu.json"
+}
