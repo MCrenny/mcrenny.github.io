@@ -1,6 +1,10 @@
 {
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true
-  }
+  "models": [
+    {
+      "title": "Qwen 3 (OpenRouter)",
+      "provider": "openrouter",
+      "model": "qwen/qwen-3-7b-instruct",
+      "apiKey": "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"
+    }
+  ]
 }

@@ -261,7 +261,7 @@ app.all('/api/webhooks/freekassa', async (req, res) => {
     return res.status(400).send('Bad Request');
   }
 
-  const fk_secret_2 = process.env.FK_SECRET_2 || '$zi52]@9I!U70MH';
+  const fk_secret_2 = process.env.FK_SECRET_2;
   if (!fk_secret_2) {
     console.error('[FreeKassa Webhook] Критическая ошибка: FK_SECRET_2 не задан в .env! Платеж отклонен в целях безопасности.');
     return res.status(500).send('Webhook unconfigured');
@@ -333,7 +333,7 @@ const handleYooMoneyWebhook = async (req, res) => {
   }
 
   const crypto = require('crypto');
-  const secret = process.env.YOOMONEY_NOTIFICATION_SECRET || 'F/DyVx3JaokGmWxELRq+fBGY';
+  const secret = process.env.YOOMONEY_NOTIFICATION_SECRET;
   
   if (!secret) {
     console.error('[YooMoney Webhook] Критическая ошибка: YOOMONEY_NOTIFICATION_SECRET не задан в .env! Платеж отклонен в целях безопасности.');

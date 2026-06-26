@@ -95,13 +95,36 @@ export default function App() {
   const isAuthorized = useStore(state => state.isAuthorized);
   const isFreeMode = useStore(state => state.isFreeMode);
   const trialStartDate = useStore(state => state.trialStartDate);
-  const hasHydrated = useStore(state => state.hasHydrated);
+  
+  const [isReady, setIsReady] = React.useState(false);
 
   const isTrialActive = trialStartDate != null && (Date.now() - trialStartDate <= 3 * 24 * 60 * 60 * 1000);
   const isPro = isAuthorized || isTrialActive;
 
   React.useEffect(() => {
     cleanCache();
+    
+    // Fallback: if hydration fails or hangs, force ready state after 1.5s
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 1500);
+    
+    // Subscribe to store changes to detect hydration
+    const unsub = useStore.subscribe((state) => {
+      if (state.hasHydrated) {
+        setIsReady(true);
+      }
+    });
+    
+    // Initial check
+    if (useStore.getState().hasHydrated) {
+      setIsReady(true);
+    }
+    
+    return () => {
+      clearTimeout(timer);
+      unsub();
+    };
   }, []);
 
   const canAccess = isPro || isFreeMode;
@@ -116,7 +139,7 @@ export default function App() {
     },
   };
 
-  if (!hasHydrated) {
+  if (!isReady) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#0A84FF" />

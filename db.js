@@ -108,9 +108,14 @@ try {
   console.error('[DB Migration] Error updating trial keys:', e.message);
 }
 
+const crypto = require('crypto');
+
 const generateKey = (telegramId = null, durationDays = 30, isTrial = false) => {
   const prefix = isTrial ? 'TRIAL-' : 'VIP-';
-  const newKey = prefix + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Date.now().toString().slice(-4);
+  const randomPart = crypto.randomBytes(3).toString('hex').toUpperCase();
+  const timePart = Date.now().toString().slice(-4);
+  const newKey = `${prefix}${randomPart}-${timePart}`;
+  
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + durationDays);
   
@@ -135,14 +140,6 @@ const verifyKey = (key) => {
   if (!key) return Promise.resolve(false);
   const cleanKey = key.trim().toUpperCase();
   
-  // Safe entry bypass for moderators or testing
-  if (
-    cleanKey === 'VIP-VR406Z-3589' || 
-    cleanKey.startsWith('TEST-')
-  ) {
-    console.log(`[DB] Special bypass entry granted for key: ${key}`);
-    return Promise.resolve(true);
-  }
 
   const stmt = db.prepare('SELECT * FROM keys WHERE key = ?');
   const row = stmt.get(cleanKey);

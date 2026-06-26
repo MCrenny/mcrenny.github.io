@@ -173,6 +173,8 @@ https://bl.rutube.ru/livestream/c801a7087e29a097192d74c270fbc6c1/index.m3u8?s=zh
 https://bl.rutube.ru/livestream/a11c890a0ec0730ad33bdaaf2d244e1a/index.m3u8?s=hCc3BqSwghCQ0GRhDJ967A&e=2070623490&scheme=https
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/che.png" group-title="📺 Общие",Че!
 https://zabava-htlive.cdn.ngenix.net/hls/CH_PERETZ/variant.m3u8
+#EXTINF:-1 tvg-logo="https://iptvx.one/picons/vot-tv.png" group-title="📺 Общие",ВОТ ТВ
+http://rt-ct-lipetsk-htlive.cdn.ngenix.net/hls/CH_R01_VOTTV/variant.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/deviatka.png" group-title="📺 Общие",Девятка
 http://devyatka.iptv2022.com/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/rentv-istoki.png" group-title="📺 Общие",Истоки
@@ -269,6 +271,10 @@ https://player.smotrim.ru/iframe/stream/live_id/0d85159d-e782-4260-ac99-ac8c55df
 https://player.smotrim.ru/iframe/stream/live_id/30acd0b6-e010-4230-bad1-3af77619226d
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/sovkino.png" group-title="🎬 Кино",Советское кино
 http://stitch.teletarget.ru/vintera/sovietmovie/index.m3u8
+#EXTINF:-1 tvg-logo="https://static.tildacdn.com/stor6561-3739-4839-b866-653865323964/89862824.png" group-title="🎬 Кино",Alpha Cinema
+http://live.15plusmg.ru/memfs/b389173a-df4e-4171-8904-e249893e71eb.m3u8
+#EXTINF:-1 tvg-logo="https://static.tildacdn.com/stor6561-3739-4839-b866-653865323964/89862824.png" group-title="📺 Общие",Alpha Moretime
+http://live.15plusmg.ru/memfs/3546fc09-2eba-459d-9a1f-9a2fc39e50bd.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/pro100.png" group-title="📺 Общие",Pro100
 https://sirius.greenhosting.ru/Pro100tvRu/video.m3u8
 #EXTINF:-1 tvg-logo="https://adindex.ru/files2/photogallery/2020_11/photo2_286493_smotrim2.jpg.jpg" group-title="🎬 Кино",Смотрим (Кино и сериалы)
@@ -469,8 +475,6 @@ https://bl.rutube.ru/livestream/59e0373a9aa587e06aeaf9009f86ded1/index.m3u8?s=Rq
 https://rt-vlg-kirov-htlive.cdn.ngenix.net/hls/CH_R03_PERVYGORODSKOY/variant.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/pervy-oblastnoy-orel.png" group-title="📺 Общие",Первый областной (Орел)
 http://rt-ct-orl-htlive.cdn.ngenix.net/hls/CH_R01_PERVOBL/variant.m3u8
-#EXTINF:-1 tvg-logo="https://iptvx.one/picons/pervy-pskovsky.png" group-title="📺 Общие",Первый Псковский
-http://live-3.otcnet.ru/pskov/index.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/pervy-rostovsky.png" group-title="📺 Общие",Первый Ростовский
 https://rost.mediacdn.ru/cdn/rostov1/tracks-v2a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/pervy-tulsky.png" group-title="📺 Общие",Первый Тульский
@@ -479,8 +483,6 @@ http://5.164.24.83/tula/1tv_hi/index.m3u8
 https://yaroslavl.mediacdn.ru/cdn/pervyaroslavsk/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/prima.png" group-title="📺 Общие",Прима HD (Красноярск)
 http://tele2dvrnat01-02.cdnvideo.ru:80/stream/NAT_Prima/hls/1920x1080@4504/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://iptvx.one/picons/pro-zhizn.png" group-title="📺 Общие",Про жизнь
-https://27trk.iptv2022.com/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/rgvk-dagestan.png" group-title="📺 Общие",РГВК Дагестан
 https://dagestan.mediacdn.ru/cdn/dagestan/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://iptvx.one/picons/ramenskoe-tv.png" group-title="📺 Общие",РТВ HD (Раменск)
@@ -581,6 +583,8 @@ http://85.238.112.40:8810/hls_sec/239.33.16.32-.m3u8
 http://176.126.166.43:1935/live/312musik/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/NfnAiTR.png" group-title="📺 Общие",365 Дней (576p)
 http://31.148.48.15/365_dney/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/Q4A6ci4.png" group-title="📺 Общие",.black (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/Black.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/nSSUHcg.png" group-title="📺 Общие",.sci-fi (576p)
 http://31.148.48.15/SONY_SCI_FI/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/2pAHdAi.png" group-title="📺 Общие",Amedia 1 (576p)
@@ -593,10 +597,14 @@ http://31.148.48.15/Amedia_HIT_HD/index.m3u8
 https://janya-digimix.akamaized.net/vglive-sk-955415/russia/ngrp:angelrussia_all/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/TJowroY.png" group-title="📺 Общие",Apsua TV
 https://gcmx3v3owcj.a.trbcdn.net/livemaster/ba7pu_fgej0zelpw.smil/playlist.m3u8?blstid=null
-#EXTINF:-1 tvg-logo="https://i.imgur.com/ekF5cAi.png" group-title="📺 Общие",Aqlvoy
-https://stream8.cinerama.uz/1205/tracks-v1a1/mono.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/ekF5cAi.png" group-title="📺 Общие",Aqlvoy (576p)
+https://adpnetworkhd-cmd.github.io/iptv/Aqlvoy.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/DBpVeb0.png" group-title="📺 Общие",Arsenal (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/ArsenalHD.m3u8
 #EXTINF:-1 tvg-logo="" group-title="📺 Общие",ARTN TV (1080p) [Not 24/7]
 https://streamer1.connectto.com/ARTN_mobile/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/GXSXmN2.png" group-title="📺 Общие",Avto24 HD (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/Avto24.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/lW3WIBD.png" group-title="📺 Общие",Baby Time
 http://89.218.32.179:18000/play/a028
 #EXTINF:-1 tvg-logo="https://i.imgur.com/WxLHBwu.png" group-title="📺 Общие",Babyfirst
@@ -607,6 +615,8 @@ https://edge51.dc.beltelecom.by/ngtrk/_definst_/smil:belarus1.smil/chunklist_w17
 http://46.56.85.151:8080/0.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/XNkQrMr.png" group-title="📺 Общие",Belarus-4 Vitebsk (1080p)
 https://ngtrk.dc.beltelecom.by/vtv/_definst_/bt4.stream/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/NJsRFud.png" group-title="📺 Общие",Belarus-5 HD (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/Belarus5.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/BP7tY6F.png" group-title="📺 Общие",Belarus-24 HD (1080p)
 http://178.124.179.122:8080/Belarus24/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/tUF33HD.png" group-title="📺 Общие",BelRos (720p)
@@ -615,8 +625,8 @@ https://souzny.mediacdn.ru/cdn/souzny/playlist.m3u8
 http://91.246.72.88:8000/play/a01w/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/scDKOLS.png" group-title="📺 Общие",Bollywood HD Russia (576p)
 https://xykt-fix.github.io/cinerama_edge01/hls/BOLLYWOOD_RU/Movie009.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/YdIHXOR.png" group-title="📺 Общие",Bolt (576p)
-http://hls127.freeott.top:8080/Bolt/video.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/YdIHXOR.png" group-title="📺 Общие",Bolt (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/BoltRussia.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/qYObfrG.png" group-title="📺 Общие",BRIDGE (576p)
 http://31.148.48.15/Bridge_TV/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JJTQq81.png" group-title="📺 Общие",BRIDGE Classic (576p)
@@ -637,16 +647,30 @@ https://v4.proofix.ru/8tv-europe/index.m3u8
 https://bl.rutube.ru/livestream/c9e26bf5c003fd8d477200065ca1a05f/index.m3u8?e=2072611029&s=eqlTXebDP9wSWTZgre6BwQ&scheme=https
 #EXTINF:-1 tvg-logo="https://i.imgur.com/RUSX0rX.png" group-title="📺 Общие",Channel One HD (720p)
 https://stream8.cinerama.uz/1214/tracks-v1a1/mono.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/ZOcDGpB.png" group-title="📺 Общие",Che! (576p)
+https://adpnetworkhd-cmd.github.io/iptv/Che_Moskva.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/UFREahx.png" group-title="📺 Общие",CuriosityStream (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/CuriosityStream.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/iBx7K1M.png" group-title="📺 Общие",Da Vinci (576p)
 http://hls127.freeott.top:8080/Da_Vinci_Learning/video.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/xq6p9BZ.png" group-title="📺 Общие",Dacha (1080p)
 https://dash2.antik.sk/live/test_dacha_tv_atktv/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/APM2ej5.jpeg" group-title="📺 Общие",Dasturxon TV (576p)
 https://stream8.cinerama.uz/1206/tracks-v1a1/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/OuBtnGU.png" group-title="📺 Общие",Dialogi o rybalke (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/DialogiORybalke.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/VDXDiPC.png" group-title="📺 Общие",Dikij (576p)
 http://hls127.freeott.top:8080/Dikiy/video.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/XVRwgom.png" group-title="📺 Общие",Domashniy (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/DomashniyHD.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/bSzjidl.png" group-title="📺 Общие",Duo 3 (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/Duo3.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/vTRHAvD.png" group-title="📺 Общие",Dushevnoe (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/DushevnoeHD.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/8MRNFb9.png" group-title="📺 Общие",DW Russian (1080p)
 https://dwamdstream110.akamaized.net/hls/live/2017971/dwstream110/master.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/htmbgOX.png" group-title="📺 Общие",Eda (576p)
+https://adpnetworkhd-cmd.github.io/iptv/Eda.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/a/a2/ETV%2B_logo.png" group-title="📺 Общие",ETV+ (720p)
 https://sb.err.ee/live/etvpluss.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/8t9mdg9.png" group-title="📰 Новости",Euronews Russian (720p)
@@ -657,10 +681,14 @@ http://31.148.48.15/Europa_Plus_HD/index.m3u8
 http://31.148.48.15/Fan/index.m3u8
 #EXTINF:-1 tvg-logo="https://spiintl.com/data/files/kcfinderUploadDir/images/logo/fastandfunbox-logo.png" group-title="⚽ Спорт",like Gecko) Chrome/149.0.0.0 Safari/537.3" group-title="Sports",Fast&FunBox (1080p)
 https://iptv.prosto.tv/ch120/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/S9OPMLE.png" group-title="📺 Общие",Feniks plus Kino (576p)
+https://adpnetworkhd-cmd.github.io/iptv/FeniksPlusKino.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/Hnwsh5d.png" group-title="🎬 Кино",like Gecko) Chrome/149.0.0.0 Safari/537.3" group-title="Movies;Series",FilmUADrama (1080p)
 http://88.99.215.227/FilmUADrama/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/gxCYAwH.png" group-title="📺 Общие",FoodTime (1080p)
-http://31.148.48.15/Eda_Premium_HD/index.m3u8
+https://adpnetworkhd-cmd.github.io/iptv/FoodTimeHD.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/UfmlXxe.png" group-title="📺 Общие",Friday! (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/FridayHD_Moskva.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/GXJKWdy.png" group-title="📺 Общие",Glazami Turista (576i)
 https://stream8.cinerama.uz/1423/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/lbViDuC.png" group-title="📺 Общие",Gulli Girl (720p)
@@ -673,8 +701,12 @@ https://moymir.ru/hls/onair.m3u8
 https://stream8.cinerama.uz/1060/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/SqyXtgK.png" group-title="📺 Общие",Jibek Joly (1080p)
 https://stream.qazcdn.net/ex6r514/jjtv/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/UU4SGuk.png" group-title="📺 Общие",Kamedi (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/Kamedi.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/XRA4tVE.png" group-title="📺 Общие",Kanal 7 [Not 24/7]
 http://315e5a5d.ottrast.com/iptv/MM4E93NGF5LADZ/20079/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/K3PSHiT.png" group-title="📺 Общие",Kapitan Fantastika (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/KapitanFantastikaHD.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/7nSbEVv.png" group-title="📺 Общие",Karapuz TV (720p)
 http://live-saha.cdnvideo.ru/saha/tooky/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/RgdHdOV.png" group-title="📺 Общие",KHL (720p)
@@ -687,24 +719,34 @@ https://stream8.cinerama.uz/1055/tracks-v1a1/mono.m3u8
 http://hls127.freeott.top:8080/Kinopokaz_HD/video.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/s0UYT8T.png" group-title="📺 Общие",Kinopremyera
 https://stream8.cinerama.uz/1207/tracks-v1a1/mono.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/4BF5VeK.png" group-title="📺 Общие",Kinosemja (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/Kinosemya.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/iao7zLZ.png" group-title="📺 Общие",Kinoseriya (1080p)
 http://hls127.freeott.top:8080/Kinoseriya_HD/video.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ZRaWqxj.png" group-title="📺 Общие",Kinosvidanie
 https://stream8.cinerama.uz/1203/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/WA9TOPi.png" group-title="📺 Общие",Kluch (576p)
 http://hls127.freeott.top:8080/Kluch/video.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/cEKe8XC.png" group-title="📺 Общие",Komediynoe (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/KomediynoeHD.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/6ZYWizP.png" group-title="📺 Общие",like Gecko) Chrome/124.0.0.0 Safari/537.36" group-title="Entertainment",Kvartal TV
+http://158.101.222.193:88/georgia_play.php?id=kvartal95
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/d/d5/Kvartal_TV_International_%28HD_Logo%29.png" group-title="🧠 Познавательные",Kvartal TV International
 https://dash2.antik.sk/live/kvartal_tv/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/qU9ohQu.png" group-title="📺 Общие",Leomax 24 (1080p)
 https://tvshops.bonus-tv.ru/cdn/shop24/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JhrTB82.png" group-title="📺 Общие",Life TV (432p) [Not 24/7]
 http://lifetv.bitflip.ee/live/stream1_1/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/qWK6WvG.png" group-title="📺 Общие",Lyubimoe (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/LubimoeHD.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/vCc0ED1.png" group-title="📺 Общие",Makon TV (576i)
 https://stream8.cinerama.uz/1497/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/PruXLqS.png" group-title="📺 Общие",Maná Tserkov' Onlayn (1080p) [Not 24/7]
 https://w2.manasat.com/tserkov-online/smil:tserkov-online.smil/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/X02s2UE.png" group-title="📺 Общие",Match! Strana (720p)
 http://31.148.48.15/Match_Strana/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/QhdxNsB.png" group-title="📺 Общие",MMA TV.com (1080p)
+https://streams2.sofast.tv/vglive-sk-462904/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ZbQY56v.png" group-title="📺 Общие",Moldova 1 (1080p)
 https://v0.trm.md/static/streaming-playlists/hls/9b79338b-1870-4cd7-91d4-0f6ce5cac7ca/master.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/Hv6Nk8A.png" group-title="📺 Общие",Moldova 2 (1080p)
@@ -735,10 +777,6 @@ http://315e5a5d.ottrast.com/iptv/MM4E93NGF5LADZ/849/index.m3u8
 https://vod.tuva.ru/nst/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/9r1BKzK.png" group-title="📺 Общие",NTV HD (1080p)
 https://bl.rutube.ru/livestream/c37cd74192c6bc3d6cd6077c0c4fd686/index.m3u8?e=2077050299&s=HSWg81JrQ3OqmwuWkEIDAQ&scheme=https
-#EXTINF:-1 tvg-logo="https://i.imgur.com/QdVa8tl.png" group-title="📺 Общие",NTV Series (576p)
-https://cdn-dvr.ntv.ru/th_serial/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/FfKBvz5.png" group-title="📺 Общие",NTV-Hit (1080p)
-https://cdn-dvr.ntv.ru/th_hit/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/QUIIhTD.png" group-title="📺 Общие",O'zbekiston (576p)
 https://stream8.cinerama.uz/1001/tracks-v1a1/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/Bj1jI7F.png" group-title="📺 Общие",Ohotnik i rybolov (576i)
@@ -751,10 +789,14 @@ http://hls127.freeott.top:8080/OstWest/video.m3u8
 https://iptv.prosto.tv/ch237/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/VaWlnjZ.png" group-title="📺 Общие",OTR (576p)
 http://94.230.128.107:8080/OTP/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/qQ6pPPQ.png" group-title="📺 Общие",Priklyucheniya HD (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/AdventuresHD.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/YfQEflM.png" group-title="📺 Общие",Pro100TV (576p)
 https://sirius.greenhosting.ru/Pro100tvRu/video.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/QpIGAT0.png" group-title="📺 Общие",Pro Lyubov (1080p)
 http://hls127.freeott.top:8080/ProLubovHD/video.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/KlsnfG9.png" group-title="📺 Общие",Prodvizhenie (576p)
+http://origin5.mediacdn.ru/live/prodvizhenie_new/index.m3u8
 #EXTINF:-1 tvg-logo="https://cdn.qazaqstan.tv/qazaqstan.png?w=420&h=196&format=png&resize=aspectfill&g=centeralt=" group-title="🧠 Познавательные",Qazaqstan International (1080p)
 https://qazaqstantv-stream.qazcdn.com/international/international/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Rada_TV_%282021%29.svg/960px-Rada_TV_%282021%29.svg.png" group-title="📺 Общие",Rada TV (720p)
@@ -873,6 +915,8 @@ https://bl.rutube.ru/livestream/5c9327074e25ca86f3111d4085cbbb65/index.m3u8?e=20
 https://cdn.universmotri.ru/live/smil:univer.smil/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/Bch2RHc.jpg" group-title="📺 Общие",UzReport TV (1080p)
 https://stream8.cinerama.uz/1015/tracks-v1a1/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/6uotdVQ.png" group-title="📺 Общие",V mire zhivotnykh (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/AnimalFamilyHD.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/io0WAkA.png" group-title="📺 Общие",Viasat Kino [Not 24/7]
 http://c3921155.edmonst.net/iptv/42L7TCH8YYKLBRHNPV52HBRN/31765/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/HwsNIDK.png" group-title="📺 Общие",Viasat Kino Action [Not 24/7]
@@ -887,8 +931,6 @@ http://315e5a5d.ottrast.com/iptv/MM4E93NGF5LADZ/17056/index.m3u8
 https://stream8.cinerama.uz/1228/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/XoR9zLh.png" group-title="📺 Общие",VITAL Drive
 https://autopilot.catcast.tv/content/37909/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/OFhQQCD.png" group-title="📺 Общие",VIVA Russia (1080p)
-https://live20.bozztv.com/akamaissh101/ssh101/vivarussia/chunks.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/RoYd5pz.png" group-title="📺 Общие",Zagorodnaya Zhizn
 https://stream8.cinerama.uz/1044/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/OkPqFNY.png" group-title="📺 Общие",Zhara Kids TV (576p)
@@ -923,8 +965,6 @@ https://dagestan.mediacdn.ru/cdn/dagestan/playlist.m3u8
 https://autopilot.catcast.tv/content/38720/index.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Tvrain.svg/960px-Tvrain.svg.png" group-title="📺 Общие",Дождь (1080p) [Geo-blocked]
 https://wl.tvrain.tv/transcode/ngrp:ses_all/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/rJpQtvK.png" group-title="🎬 Кино",Дом Кино Премиум HD (1080p)
-http://31.148.48.15/Dom_Kino_Premium_HD/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/nf7GRXb.png" group-title="🧠 Познавательные",like Gecko) Chrome/144.0.0.0 Safari/537.36" group-title="Lifestyle",Домашний International (720p)
 https://cdn4.skygo.mn/live/disk1/Domashni/HLSv3-FTA/Domashni.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/41K9Y2s.png" group-title="📺 Общие",Жара TV (576p)
@@ -995,8 +1035,6 @@ http://31.148.48.15/Multimuzika/index.m3u8
 http://s1.tv-nano.com/Nano_rec/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ZZxzueO.png" group-title="🧠 Познавательные",НАУКА (1080p)
 http://31.148.48.15/Nauka_2.0/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/iuRSScH.png" group-title="📺 Общие",Новый Русский (720p)
-https://live.15plusmg.ru/memfs/f983b507-a170-41a9-85a9-d9afc6cba9c1.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/YBdBc0J.png" group-title="📺 Общие",Ностальгия (576p)
 http://31.148.48.15/Nostalgiya/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/pUcV46F.png" group-title="📺 Общие",НТВ Мир
@@ -1049,8 +1087,22 @@ http://31.148.48.15/Sapfir_HD/index.m3u8
 http://31.148.48.15/Sarafan/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/sTOQLYl.png" group-title="📺 Общие",Север (Нарьян-Мар)
 https://2vko9pchwon.a.trbcdn.net/livemaster/8ilgc_cw63ucn03p.smil/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://cdn-st3.smotrim.ru/vh/pictures/svg/444/241/8.svg" group-title="📺 Общие",Смотрим Честный Детектив (1080p)
-https://live-vgtrksmotrim.cdnvideo.ru/vgtrksmotrim/smotrim-live-01.smil/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/ozEqob9.png" group-title="🎵 Музыка",Сити Эдем Play Христианский Музыкальный [Not 24/7]
+https://cityeden.catcast.tv/content/34100/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/qpe8L27.png" group-title="📺 Общие",Сити Эдем АвтоГид [Not 24/7]
+https://cityeden.catcast.tv/content/47515/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/38Q5L5W.png" group-title="📺 Общие",Сити Эдем Бирма Play [Not 24/7]
+https://cityeden.catcast.tv/content/34364/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/gaket4B.png" group-title="🎬 Кино",Сити Эдем КиноАзия [Not 24/7]
+https://cityeden.catcast.tv/content/34393/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/67CWCtz.png" group-title="🎬 Кино",Сити Эдем КиноАрт [Not 24/7]
+https://cityeden.catcast.tv/content/38398/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/9rKHwBV.png" group-title="🎬 Кино",Сити Эдем КиноДетектив [Not 24/7]
+https://cityeden.catcast.tv/content/41327/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/itRbMX3.png" group-title="🎬 Кино",Сити Эдем КиноДок [Not 24/7]
+https://cityeden.catcast.tv/content/38354/index.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/29ddffh.png" group-title="🎬 Кино",Сити Эдем КиноДрама [Not 24/7]
+https://cityeden.catcast.tv/content/45269/index.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/%D0%9B%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%B1%D0%B5%D0%BB%D0%BE%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%B3%D0%BE_%D1%82%D0%B5%D0%BB%D0%B5%D0%BA%D0%B0%D0%BD%D0%B0%D0%BB%D0%B0_%C2%AB%D0%A1%D0%A2%D0%92%C2%BB.svg/960px-%D0%9B%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%B1%D0%B5%D0%BB%D0%BE%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%B3%D0%BE_%D1%82%D0%B5%D0%BB%D0%B5%D0%BA%D0%B0%D0%BD%D0%B0%D0%BB%D0%B0_%C2%AB%D0%A1%D0%A2%D0%92%C2%BB.svg.png" group-title="📺 Общие",СТБ (720p)
 https://ctv.dc.beltelecom.by/ctv/ctv.stream/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/mwiC0RG.png" group-title="🧠 Познавательные",like Gecko) Chrome/144.0.0.0 Safari/537.36" group-title="Undefined",СТС International (720p)
@@ -1073,8 +1125,6 @@ https://sitv.ru/hls/s86.m3u8
 https://live-tvkrasnodar.cdnvideo.ru/tvkrasnodar/tvkrasnodar.sdp/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/eXJm1n3.png" group-title="📺 Общие",Телепутешествия (576p)
 http://31.148.48.15/Teleputeshestviya/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/JQZkxeA.png" group-title="📺 Общие",Телерадиокомпания 555 (Алушта) (720p)
-http://trk555.tv:8888/live
 #EXTINF:-1 tvg-logo="https://i.imgur.com/1zbcZ3p.png" group-title="📺 Общие",Телплюс ТВ (Астрахань) (360p) [Not 24/7]
 https://streaming.astrakhan.ru/telplushd/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/VqtPB7L.png" group-title="📺 Общие",ТКР (Рязань) (1080p) [Not 24/7]
@@ -1093,8 +1143,6 @@ http://31.148.48.15/Tochka_TV/index.m3u8
 https://hls.tv.3angels.ru/stream.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/kSJZjDL.png" group-title="📺 Общие",Уникум (576p)
 http://31.148.48.15/Detskiy/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/S9OPMLE.png" group-title="🎬 Кино",Феникс плюс Кино (576p)
-http://31.148.48.15/Feniks_plus_kino/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/pEuaZVx.png" group-title="⚽ Спорт",Футбол (720p)
 http://31.148.48.15/Futbol_HD/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/Abg1fct.png" group-title="📺 Общие",Хузур ТВ (1080p) [Not 24/7]
@@ -1117,9 +1165,9 @@ https://streaming.astrakhan.ru/astrakhan24/playlist.m3u8
 https://streams.adapto.kz/hls/live/muzzone/main_stream.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/Meak2y4.png" group-title="🎬 Кино",viju TV1000 Русское (576p)
 http://31.148.48.15/TV1000_Russkoe_kino/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/146OgfU.png" group-title="🎬 Кино",alpha Cinema (1080p)
-https://live.15plusmg.ru/memfs/b389173a-df4e-4171-8904-e249893e71eb.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/ibQfUr7.png" group-title="📺 Общие",alpha Moretime (1080p)
-https://live.15plusmg.ru/memfs/3546fc09-2eba-459d-9a1f-9a2fc39e50bd.m3u8
+#EXTINF:-1 tvg-logo="https://i.imgur.com/rJpQtvK.png" group-title="📺 Общие",Dom kino Premium (1080p)
+https://adpnetworkhd-cmd.github.io/iptv/DomKinoPremiumHD.m3u8
 #EXTINF:-1 tvg-logo="https://tv.lovenature.com/wp-content/uploads/2024/10/LoveNature2024_Logo_full_colour-copy.png" group-title="📺 Общие",Love Nature (1080p)
 https://aegis-cloudfront-1.tubi.video/6d6d0f24-8445-4b4c-bdf6-44f9e38beaa4/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://cdn-st3.smotrim.ru/vh/pictures/r/444/241/8.png" group-title="📺 Общие",Смотрим: Честный Детектив
+https://live-vgtrksmotrim.cdnvideo.ru/vgtrksmotrim/smotrim-live-01.smil/playlist.m3u8
