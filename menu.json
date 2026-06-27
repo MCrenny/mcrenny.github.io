@@ -2,7 +2,7 @@
   "type": "pages",
   "headline": "StreamLume",
   "ready": {
-    "action": "execute:http://streamlume-tv-svmorozoww.amvera.io/index.html"
+    "action": "link:http://streamlume-tv-svmorozoww.amvera.io/index.html"
   },
   "pages": [
     {
@@ -11,7 +11,7 @@
           "type": "button",
           "layout": "0,0,12,2",
           "title": "Start StreamLume",
-          "action": "execute:http://streamlume-tv-svmorozoww.amvera.io/index.html"
+          "action": "link:http://streamlume-tv-svmorozoww.amvera.io/index.html"
         }
       ]
     }
