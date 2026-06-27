@@ -1,6 +1,7 @@
 {
-  "name": "StreamLume",
-  "version": "1.0",
-  "description": "Premium IPTV App",
-  "parameter": "content:https://streamlume-tv-svmorozoww.amvera.io/menu.json?v=3"
+    "name": "StreamLume",
+    "version": "1.0.9",
+    "description": "Premium IPTV Service",
+    "parameter": "content:https://mcrenny.github.io/content.json",
+    "type": "plugin"
 }

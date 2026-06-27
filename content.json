@@ -1,0 +1,5 @@
+{
+    "type": "pages",
+    "action": "execute:https://mcrenny.github.io/msx-storage/tv/index.html?msx=1",
+    "pages": []
+}
