@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "text": "Запустить StreamLume",
+      "action": "execute:https://mcrenny.github.io/msx-storage/tv/index.html?msx=1"
+    },
+    {
+      "text": "Инструкция",
+      "action": "execute:https://t.me/StreameLumeBot"
+    }
+  ]
+}

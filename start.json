@@ -2,6 +2,6 @@
   "name": "StreamLume",
   "version": "1.0.9",
   "description": "Premium IPTV Service",
-  "parameter": "start.json",
+  "parameter": "menu.json",
   "type": "plugin"
 }
