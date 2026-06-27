@@ -10,7 +10,7 @@
         {
           "type": "button",
           "layout": "0,0,12,2",
-          "title": "Запустить StreamLume",
+          "title": "Start StreamLume",
           "action": "execute:https://mcrenny.github.io/index.html"
         }
       ]

@@ -1,6 +1,6 @@
 {
   "name": "StreamLume",
   "version": "1.0",
-  "description": "Премиальное мобильное IPTV-приложение",
-  "parameter": "content:https://mcrenny.github.io/menu.json?v=4"
+  "description": "Premium IPTV App",
+  "parameter": "content:https://mcrenny.github.io/menu.json?v=5"
 }
