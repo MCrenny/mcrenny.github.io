@@ -2,5 +2,5 @@
   "name": "StreamLume",
   "version": "1.0",
   "description": "Premium IPTV App",
-  "parameter": "content:http://streamlume-tv-svmorozoww.amvera.io/menu.json?v=2"
+  "parameter": "content:https://streamlume-tv-svmorozoww.amvera.io/menu.json?v=3"
 }
