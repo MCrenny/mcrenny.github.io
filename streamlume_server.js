@@ -11,6 +11,7 @@ const { runAutoblog } = require('./autoblog');
 const { runYouTubeBot } = require('./youtube_bot');
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -36,6 +37,17 @@ console.log(`[StreamLume] CRYPTO_PAY_TOKEN = ${CRYPTO_PAY_TOKEN ? 'OK' : 'NOT SE
 console.log(`[StreamLume] FK_MERCHANT_ID = ${process.env.FK_MERCHANT_ID ? process.env.FK_MERCHANT_ID : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] FK_SECRET_1 = ${process.env.FK_SECRET_1 ? 'LOADED (len: ' + process.env.FK_SECRET_1.length + ', preview: ' + process.env.FK_SECRET_1.substring(0, 2) + '...' + process.env.FK_SECRET_1.slice(-2) + ')' : 'NOT SET ⚠️'}`);
 console.log(`[StreamLume] FK_SECRET_2 = ${process.env.FK_SECRET_2 ? 'LOADED (len: ' + process.env.FK_SECRET_2.length + ', preview: ' + process.env.FK_SECRET_2.substring(0, 2) + '...' + process.env.FK_SECRET_2.slice(-2) + ')' : 'NOT SET ⚠️'}`);
+
+// Root route: отдаём TV web-app при ?msx=1 / ?tv=1, иначе лендинг.
+// ВАЖНО: этот обработчик должен стоять ВЫШЕ express.static, иначе static
+// перехватит / и вернёт лендинг. Это и есть рабочий MSX-механизм:
+// MSX выполняет execute:.../?msx=1 и ТВ открывает Expo-приложение целиком.
+app.get('/', (req, res, next) => {
+  if (req.query.msx === '1' || req.query.tv === '1') {
+    return res.sendFile(path.join(__dirname, 'tv', 'index.html'));
+  }
+  next();
+});
 
 // Serve landing page as static files (from root or landing folder)
 app.use(express.static(path.join(__dirname, 'landing')));
@@ -73,96 +85,13 @@ const parseCachedPlaylist = () => {
 };
 
 // ============================================================
-// MSX Content API — правильный способ интеграции по документации
-// разработчика (msx.benzac.de/wiki). MSX сам управляет навигацией
-// пультом (UP/DOWN/LEFT/RIGHT/OK), когда контент подаётся в формате
-// Content API JSON. Действие "link:" открывает внешнюю страницу
-// без навигации пульта — это была ошибка.
+// MSX integration (рабочий механизм из коммита 7a66f6f, 21 июня).
+// MSX грузит статический tv/start.json → tv/menu.json, чей ready.action
+// выполняет execute:.../?msx=1 — и ТВ открывает Expo-приложение целиком
+// в нативном браузере (интерфейс как в мобильном приложении).
 // ============================================================
-
-// MSX Start Object (стартовая точка входа через Start Parameter)
-app.use((req, res, next) => {
-    if (req.path.includes('.json') || req.path.includes('/msx')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-    }
-    next();
-});
-
-// MSX Start Object
-app.get(['/msx/start.json', '/start.json'], (req, res) => {
-    res.json({
-        "name": "StreamLume TV",
-        "version": "1.0",
-        "parameter": "content:{PREFIX}{SERVER}/msx/content.json"
-    });
-});
-
-// MSX Content Root — главный экран с категориями каналов
-// Пульт (UP/DOWN/LEFT/RIGHT/OK) управляется нативно самим MSX
-app.get(['/menu.json', '/msx.json', '/tv/start.json', '/tv/menu.json', '/msx/menu.json', '/msx/content.json'], (req, res) => {
-    const channels = parseCachedPlaylist();
-
-    // Группируем по категориям
-    const groupsMap = {};
-    for (const ch of channels) {
-        const g = ch.group || '📺 Общие';
-        if (!groupsMap[g]) groupsMap[g] = [];
-        groupsMap[g].push(ch);
-    }
-
-    // Строим пункты меню — каждая категория ведёт на список каналов
-    const menuItems = Object.keys(groupsMap).map(group => ({
-        "title": group,
-        "titleFooter": `${groupsMap[group].length} каналов`,
-        "icon": "msx-white-soft:folder",
-        "action": `content:{PREFIX}{SERVER}/msx/channels.json?group=${encodeURIComponent(group)}`
-    }));
-
-    // Добавляем пункт "Все каналы" в начало
-    menuItems.unshift({
-        "title": "📺 Все каналы",
-        "titleFooter": `${channels.length} каналов`,
-        "icon": "msx-white-soft:live-tv",
-        "action": "content:{PREFIX}{SERVER}/msx/channels.json"
-    });
-
-    res.json({
-        "name": "StreamLume",
-        "version": "1.0",
-        "headline": "StreamLume — IPTV",
-        "type": "list",
-        "items": menuItems
-    });
-});
-
-// MSX Channels Content — список каналов (опционально фильтр по группе)
-// Каждый канал воспроизводится нативным плеером MSX через action "video:..."
-app.get('/msx/channels.json', (req, res) => {
-    const group = req.query.group || null;
-    const key = req.query.key || null;
-    let channels = parseCachedPlaylist();
-
-    // Если передан ключ — проверяем через плейлист с ключом (premium)
-    // Иначе отдаём публичные каналы из кэша
-    if (group) {
-        channels = channels.filter(ch => ch.group === group);
-    }
-
-    const items = channels.map(ch => ({
-        "title": ch.name,
-        "titleFooter": ch.group,
-        "image": ch.logo || undefined,
-        "imageFill": "msx-white:live-tv",
-        "action": `video:${ch.url}`
-    }));
-
-    res.json({
-        "headline": group || "Все каналы",
-        "type": "list",
-        "items": items
-    });
+app.get(['/start.json', '/msx/start.json'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'tv', 'start.json'));
 });
 
 // Fallback for Root route if static files aren't found
@@ -264,8 +193,9 @@ app.get('/api/playlist', async (req, res) => {
     return res.status(401).send('#EXTM3U\n#EXTINF:-1, Пожалуйста введите VIP-ключ в StreamLume!\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
   }
 
+  const cleanKey = key.trim().toUpperCase();
   // Block legacy free-access token — must buy a real key
-  if (key === 'VIP-TEST' || key.startsWith('VIP-TEST-')) {
+  if (cleanKey === 'VIP-TEST' || cleanKey.startsWith('VIP-TEST-')) {
     return res.status(401).send('#EXTM3U\n#EXTINF:-1, Взломанный ключ. Пожалуйста купите @StreameLumeBot\nhttp://iptvpay-svmorozoww.amvera.io/auth_needed');
   }
 
